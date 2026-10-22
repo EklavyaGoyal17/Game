@@ -1,0 +1,64 @@
+{
+  "contacts": {
+    "mummy": { "name": "Mummy", "role": "Your mother", "color": "#ff8ab4" },
+    "kunal": { "name": "Kunal", "role": "Your cousin", "color": "#7fd39a" },
+    "hetal": { "name": "Hetal", "role": "Runs the chai & nasto corner", "color": "#e0a060" },
+    "krupa": { "name": "Krupa", "role": "Airline dispatcher, Daman Airport", "color": "#8ec8ff" },
+    "jignesh": { "name": "Jignesh", "role": "Railway courier", "color": "#ffd24c" }
+  },
+  "trees": {
+    "mummy": {
+      "start": "hello",
+      "nodes": {
+        "hello": { "who": "mummy", "text": "Beta! You finally remember where your mother lives. Have you eaten?",
+          "choices": [
+            { "text": "I ate, Mummy. Don't worry.", "next": "worry", "rel": { "mummy": 2 } },
+            { "text": "Not yet. Is there dal-dhokli?", "next": "food", "rel": { "mummy": 5 } },
+            { "text": "Is there any work, Mummy? Anything you need?", "next": "favor", "cond": "!done:m15" },
+            { "text": "I can't stay long.", "next": "bye", "rel": { "mummy": -3 } }
+          ] },
+        "worry": { "who": "mummy", "text": "Hmph. You look thinner than at Navratri. Sit, sit. I'll make thepla.", "next": "hello2" },
+        "food": { "who": "mummy", "text": "Always dal-dhokli. Take a dabba home. And call your Pappa once in a while.", "give": { "health": 100 }, "next": "hello2" },
+        "hello2": { "who": "mummy", "text": "So? What brings you home?",
+          "choices": [
+            { "text": "Anything you need done?", "next": "favor", "cond": "!done:m15" },
+            { "text": "Just visiting. Jai Shri Krishna, Mummy.", "next": "bye" }
+          ] },
+        "favor": { "who": "mummy", "text": "Your Pappa's old Ambassador has to reach Rajesh Kaka's garage in the GIDC before he shuts. Pappa is at the derasar and you know he drives like a bullock cart. Can you take it? Don't scratch it.",
+          "choices": [
+            { "text": "Of course. I'll take it right now.", "next": "yes", "rel": { "mummy": 6 }, "event": "family:favor_accepted" },
+            { "text": "Maybe later.", "next": "bye", "rel": { "mummy": -2 } }
+          ] },
+        "yes": { "who": "mummy", "text": "Keys are in the car outside. Rajesh Kaka closes soon, so go fast but carefully. And take this for petrol.", "give": { "cash": 200 }, "end": true },
+        "bye": { "who": "mummy", "text": "Go, go. Come for dinner on Sunday, I'm making undhiyu.", "end": true }
+      }
+    },
+    "kunal": {
+      "start": "k1",
+      "nodes": {
+        "k1": { "who": "kunal", "text": "Bhai! Heard you're doing big things now. Airport, trains, all that. Kem cho?",
+          "choices": [
+            { "text": "Majama. Just hustling. You?", "next": "k2", "rel": { "kunal": 3 } },
+            { "text": "Keep it quiet around Mummy.", "next": "k3", "rel": { "kunal": 1 } }
+          ] },
+        "k2": { "who": "kunal", "text": "Chemical engineering exams. Again. Then a job in the GIDC, Pappa says. If you're flying out of Daman, tell Krupa at check-in I said hi.", "end": true },
+        "k3": { "who": "kunal", "text": "My lips are sealed. For a cutting chai at Hetal's, maybe.", "end": true }
+      }
+    },
+    "hetal": {
+      "start": "s1",
+      "nodes": {
+        "s1": { "who": "hetal", "text": "Kem cho! Cutting chai, extra adrak? Or are you here for the other business?",
+          "choices": [
+            { "text": "Cutting chai, please.", "next": "coffee", "rel": { "hetal": 2 } },
+            { "text": "A plate of khaman.", "next": "dosa", "rel": { "hetal": 2 } },
+            { "text": "What other business?", "next": "work" },
+            { "text": "Just looking.", "end": true }
+          ] },
+        "coffee": { "who": "hetal", "text": "Here. Hot like the afternoon on the Vapi-Daman road.", "give": { "health": 15, "cash": -5 }, "end": true },
+        "dosa": { "who": "hetal", "text": "Fresh khaman, with the green chutney you like.", "give": { "health": 40, "cash": -12 }, "end": true },
+        "work": { "who": "hetal", "text": "Jignesh moves packages on the Western Railway locals for people who pay well. If you want in, find his marker at the station. He hates people who are late.", "rel": { "hetal": 1 }, "end": true }
+      }
+    }
+  }
+}
