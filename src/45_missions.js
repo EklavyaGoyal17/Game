@@ -51,7 +51,7 @@ const STEP = {
     update(st, M, dt) {
       if (!player.interior || player.interior.type !== st.inside) return false;
       const I = INT[st.inside], sp = I.spots[st.spot]; const d = Math.hypot(player.x - (I.x + sp[0]), player.z - (I.z + sp[1]));
-      if (!st._alarm) { st._alarm = true; Police.set(st.wanted || 3); toast('Alarm! Hold the vault while the drill runs.'); spawnRaiders(st); }
+      if (!st._alarm) { st._alarm = true; Police.set(st.wanted || 3); if (st.inside === 'mansion') Heists.alarm(st.wanted || 3); toast(st.inside === 'mansion' ? 'The guards heard you! Hold the safe while the drill runs.' : 'Alarm! Hold the vault while the drill runs.'); spawnRaiders(st); }
       if (d < 3) st._left -= dt; return st._left <= 0;
     },
     target(st) { return player.interior ? null : st._t || (st._t = svcPos(nearestSvc(st.inside))); },
@@ -291,6 +291,21 @@ function defineMissions() {
       { t: 'goto', need: 'target', stop: true, to: () => { const [x, z] = placeXZ('GIDC'); const s = roadSpot(x, z, 1, true); return [s.x, s.z]; }, r: 10, text: 'Deliver the van to the <b>GIDC godown</b>', label: 'Deliver to the GIDC godown', keepTimer: true },
       { t: 'lose' },
     ]
+  });
+  const mansion = nearestSvc('mansion', hd.x, hd.z);
+  if (mansion) MISSIONS.push({
+    id: 'm17', title: "The Seth's Safe", who: 'Maya', at: (() => { const s = roadSpot(mansion.x + 30, mansion.z + 30, 1); return [s.x, s.z]; })(), unlock: d => d.includes('m9'), reward: 200000,
+    brief: `${mansion.name}: a chemical-money fortune behind one safe door, six armed guards and a panic button wired to the Gujarat Police. Crack the safe, get out, lose five stars. Then wash the money.`,
+    steps: [
+      { t: 'phone', from: 'Maya', msg: "The Seth keeps his real money at home, not in the bank. His guards are ex-army. Bring a rifle and armour, and don't leave that safe until it opens." },
+      { t: 'give', weapon: 'rifle', ammo: 300 },
+      { t: 'enter', need: 'car', text: 'Get a <b>car</b> for the getaway', label: 'Get a getaway car' },
+      { t: 'goto', need: 'car', stop: true, to: () => [mansion.x, mansion.z], r: 14, text: `Drive to the <b>${mansion.name}</b>`, label: 'Drive to the bungalow' },
+      { t: 'hold', inside: 'mansion', spot: 'safe', secs: 60, wanted: 4, text: 'Break into the bungalow and crack the <b>safe</b>' },
+      { t: 'goto', to: () => [mansion.x, mansion.z], r: 1e9, text: 'Get out of the bungalow', check: () => !player.interior },
+      { t: 'wanted', level: 5 },
+      { t: 'lose' },
+    ],
   });
   defineTransitMissions(near, hd);
   for (const m of MISSIONS) { m.marker = makeMarker(); m.label = labelSprite(m.title.toUpperCase(), m.who); m.label.visible = false; const f = freeSpot(m.at[0], m.at[1]); m.pos = f; }

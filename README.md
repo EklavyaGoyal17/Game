@@ -17,15 +17,18 @@ The game is a fork of [Madras Hustle](https://github.com/shreyans-chowdry/madras
 
 | Area | What's there |
 |---|---|
-| **The map** | About 16 × 12 km, from Daman's coast to Chanod and Karvad, and from Bagwada down to Balitha and Salvav. It has 8,166 streets, 76,600 buildings, 41,000 trees, the Daman Ganga and Kolak rivers, and the Arabian Sea to the west |
+| **The map** | About 19 × 14 km, from Daman's coast to Karvad and Chhiri, and from Bagwada down to Karambeli and the southern GIDC. It has 9,241 streets, 94,700 buildings, 42,000 trees, the Daman Ganga and Kolak rivers, and the Arabian Sea to the west |
 | **Neighbourhoods** | Area names come from the data: Chala, GIDC, GIDC Char Rasta, Zanda Chowk, Imran Nagar, Balitha, Chanod, Dabhel, Kachigam, Salvav, Chharwada, Chhiri, Nani Daman, Moti Daman, Khariwad, Dunetha, Varkund and others. They are the address lines most used by Overture place listings, each placed at the median location of those listings |
-| **Buildings** | Low GIDC sheds on the industrial estates (from the land-use data), 2–5 floor blocks in town, and high-rise towers around Chala and Vapi town. Temples and Jain derasars get a Nagara-style shikhara with a kalash and a saffron flag. Churches in Daman get a colonial facade. The Moti and Nani Daman fort walls stand as stone ramparts |
+| **Buildings** | GIDC factories are metal-clad sheds with pitched roofs and roof vents. They are found from the industrial land-use areas and from every listed manufacturer, chemical plant and godown. Housing societies are rectangular G+3 to G+6 blocks. Hotels, hospitals and colleges have the right heights. Daman stays low-rise, with 2–5 floor blocks in Vapi town, and high-rise towers around Chala and Vapi town. Temples and Jain derasars get a Nagara-style shikhara with a kalash and a saffron flag. Churches in Daman get a colonial facade. The Moti and Nani Daman fort walls stand as stone ramparts |
 | **Rail** | The Western Railway main line runs through Vapi station and Bagwada halt. The *WR local* takes the place of the original game's metro: buy a ticket, go through the gates, board, ride the real line. White bullet trains run at 250 km/h on the 15 m-high Mumbai–Ahmedabad high-speed viaduct. Container rakes run on the Western Dedicated Freight Corridor |
 | **Daman Airport** | The real runways (03/21 and 09/27), taxiways, aprons and helipad. A terminal with check-in, security and a boarding gate. Fly as a passenger on a scripted scenic flight over Devka beach, the forts and Vapi, or charter a prop plane and fly it yourself |
 | **Sea and coast** | Devka, Jampore and Moti Daman beaches with coconut palms. Marinas at the Daman jetty and Jampore. Ships on the Arabian Sea |
 | **Family and friends** | Mummy at the family home in Chharwada (dal-dhokli restores health), cousin Kunal, and Hetal's chai & nasto corner (cutting chai, khaman). Your choices change relationship scores |
-| **Missions** | 16 missions. The original 12 were relocated to Vapi. The Arrival, Commuter Hustle and Family Favor were rewritten for Daman Airport, the WR local and Rajesh Kaka's garage in the GIDC. There is one new mission, **Dry State Run**: Salim's van of crates from the Daman jetty, past the Kachigam check post, to a GIDC godown |
+| **Missions** | 17 missions. The original 12 were relocated to Vapi. The Arrival, Commuter Hustle and Family Favor were rewritten for Daman Airport, the WR local and Rajesh Kaka's garage in the GIDC. There is one new mission, **Dry State Run**: Salim's van of crates from the Daman jetty, past the Kachigam check post, to a GIDC godown |
 | **Google Maps** | Press <kbd>J</kbd> to open a real Google map and Street View of the spot you are standing on. Clicking the Google map sets your in-game GPS route (see below) |
+| **Street names** | The big map (M) labels streets along the roads and shows stations, the airport, malls, hospitals, temples and forts as you zoom in. Most roads here come from TomTom without names, so names are taken from the street lines in place listings' addresses (Koparli Road, Gunjan Road, Vapi-Daman Main Road…), voted onto the nearest road and spread along it. About 2,900 streets are named, including nearly every main road |
+| **Heists** | 50 banks, 9 jewellers and 9 millionaire bungalows (the biggest free-standing houses, owned by fictional GIDC industrialists). Rob a store or jeweller by aiming at the clerk. Drill a bank vault for 45 s against SWAT (5 stars). Crack a bungalow safe for 60 s against 4–6 armed private guards, with the police coming through the door halfway. A place you hit stays locked down for 20 minutes. The new mission **The Seth's Safe** is the hardest job in town |
+| **Dirty money** | Robbery and heist loot is dirty cash. You can't spend it, and you lose it if you're wasted or busted. Wash it at one of four **hawala** fronts (Zanda Chowk, GIDC Char Rasta, Nani Daman, Chala). The operator takes 30%, falling to 20% as you launder more, and the rest goes to your bank |
 | **Money** | Rupees (₹, Indian digit grouping) |
 
 ## Play locally
@@ -64,7 +67,7 @@ python3 data/process_vapi.py      # road graph, water/sea, rails + viaduct heigh
 python3 data/pack.py              # delta-encode and split into data/world-a.json + data/world-b.json
 python3 build.py
 ```
-The default box is `72.805,20.335,72.965,20.445`, and the release is pinned with `OVERTURE_RELEASE` (default `2026-10-21.0`). Other changes from the Chennai pipeline:
+The default box is `72.805,20.315,72.99,20.445`, and the release is pinned with `OVERTURE_RELEASE` (default `2026-10-21.0`). Other changes from the Chennai pipeline:
 - the sea comes from Overture's ocean polygon and lies to the **west**;
 - rail pieces are chained through junctions by the straightest continuation, so the WR main line stays one line through Vapi yard;
 - the bullet-train corridor is tagged as a viaduct;
@@ -77,18 +80,19 @@ Same as Madras Hustle (full list in the pause menu): WASD move or drive, mouse c
 ## Tests
 ```
 cd tools/e2e && npm install
-node run.mjs loops.mjs     # boots the real game headless and plays every loop: 22/22 checks pass
+node run.mjs loops.mjs     # boots the real game headless and plays every loop: 24/24 checks pass
 node run.mjs smoke.mjs     # quick boot report (stations, properties, missions, services)
 node run.mjs shots.mjs     # re-renders docs/screenshots
 ```
-The 22 checks cover:
+The 24 checks cover:
 - boot, cheats and the save sanitiser;
 - driving with gears, reverse and headlights;
 - Daman terminal check-in, security, gate, charter take-off, and a passenger flight from take-off to landing;
 - the WR local from Vapi to Bagwada;
 - dialogue with Mummy, and missions m13, m14 and m15 played to the end, plus a fail condition;
 - the Google Maps panel: key prompt, lat/lng round trip, and clean failure when the API can't load;
-- m16's route, the fall-through failsafe, and platform collision layers.
+- m16's route, the fall-through failsafe, and platform collision layers;
+- a bank vault heist through laundering at a hawala front, and a bungalow heist with hostile guards and a lockdown.
 
 ## Credits and licences
 - Map data: © [Overture Maps Foundation](https://docs.overturemaps.org/attribution), including © OpenStreetMap contributors (ODbL), Google Open Buildings (CC BY 4.0 / ODbL), Microsoft ML Building Footprints (ODbL) and TomTom (ODbL).

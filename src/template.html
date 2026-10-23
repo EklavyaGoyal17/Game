@@ -176,6 +176,8 @@ kbd.pad{background:#2b3a8a;color:#fff;box-shadow:0 2px 0 #121a44;border-radius:1
 #consoleLog{max-height:120px;overflow:auto;white-space:pre-wrap;font-size:13px;opacity:.85;}
 #bye h1{font-size:clamp(36px,7vw,64px);}
 #loadAssets{font:600 14px var(--f-body);opacity:.6;}
+#dirty{font:400 18px/1 var(--f-display);color:#ff9a3c;text-shadow:0 2px 0 #3a1a00,0 0 1px #000;font-variant-numeric:tabular-nums;}
+#dirty.flash{animation:flash .5s steps(2) 4;}
 /* Google Maps panel: a real Google map + Street View of the player's spot */
 #gmaps .panel{width:min(1100px,100%);max-height:92vh;}
 #gmBody{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:10px;}
@@ -197,6 +199,7 @@ kbd.pad{background:#2b3a8a;color:#fff;box-shadow:0 2px 0 #121a44;border-radius:1
     <div id="clock">17:30</div>
     <div id="cash">₹0</div>
     <div id="cashDelta"></div>
+    <div id="dirty" hidden></div>
     <div id="stars" aria-label="wanted level"><span>★</span><span>★</span><span>★</span><span>★</span><span>★</span></div>
     <div id="bars"><div class="bar" id="hbar" title="Health"><i style="width:100%"></i></div></div>
     <div class="bar" id="abar" title="Armor" hidden><i style="width:0%"></i></div>

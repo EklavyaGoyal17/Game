@@ -52,6 +52,7 @@ function sanitizeSave(d) {
   for (const k of ['done', 'packages', 'props', 'aircraft', 'boats']) d[k] = Array.isArray(d[k]) ? [...new Set(d[k])] : [];
   for (const k of ['garages', 'stash', 'locker', 'weapons', 'stats', 'rel']) if (!d[k] || typeof d[k] !== 'object' || Array.isArray(d[k])) d[k] = {};
   for (const k in d.stash) d.stash[k] = Math.round(num(d.stash[k], 0, 1e11, 0));
+  d.dirty = Math.round(num(d.dirty, 0, 1e11, 0)); if (!d.heists || typeof d.heists !== 'object' || Array.isArray(d.heists)) d.heists = {};
   for (const k in d.rel) d.rel[k] = num(d.rel[k], -100, 100, 0);
   for (const k in d.weapons) { const w = d.weapons[k]; if (!WEAPONS[k] || !w) { delete d.weapons[k]; continue; } w.clip = Math.round(num(w.clip, 0, 1e5, 0)); w.ammo = Math.round(num(w.ammo, 0, 1e6, 0)); }
   if (!d.props.length) d.props = ['zanda']; if (!d.home || !d.props.includes(d.home)) d.home = d.props[0];

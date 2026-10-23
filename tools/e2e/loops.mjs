@@ -155,7 +155,7 @@ export default async function (page) {
     const st = await ev(() => JSON.parse(localStorage.getItem('mh-settings'))); if (st.sens !== 1.6 || st.invert !== true) throw new Error(JSON.stringify(st));
     await ev(() => { document.getElementById('setInvert').click(); document.getElementById('setClose').click(); document.getElementById('titleMissionsBtn').click(); });
     const n = await ev(() => document.querySelectorAll('#msList > div').length); await ev(() => document.getElementById('msClose').click());
-    if (n < 16) throw new Error('missions listed ' + n); return n;
+    if (n < 17) throw new Error('missions listed ' + n); return n;
   });
 
   // ---------------- missions: briefing + 3 new missions end to end ----------------
@@ -261,6 +261,35 @@ export default async function (page) {
     if (!inside(m.pos) || !inside(a) || !inside(b)) throw new Error(JSON.stringify({ pos: m.pos, a, b }));
     return { from: m.pos.map(Math.round), border: a.map(Math.round), godown: b.map(Math.round) };
   }));
+  await check('heist: bank vault drill -> dirty cash -> lost-on-bust rules -> hawala laundering', async () => {
+    await reset();
+    const r = await ev(() => { const M = window.__mh, H = M.Heists; M.saveData.dirty = 0; M.saveData.heists = {}; const b = M.services.find(s => s.type === 'bank'); M.player.x = b.x; M.player.z = b.z; M.serviceInteract(b);
+      const I = M.INT.bank; M.player.x = I.x + I.spots.vault[0]; M.player.z = I.z + I.spots.vault[1]; return { inBank: M.player.interior && M.player.interior.type }; });
+    if (r.inBank !== 'bank') throw new Error('not in bank');
+    await wait(300); await tap('KeyE'); await until(() => window.__mh.Heists.active && window.__mh.Heists.active.kind === 'vault', 3000);
+    await ev(() => { window.__mh.Heists.active.left = 0.5; window.__mh.player.health = 100; window.__mh.player.armor = 100; });
+    await until(() => window.__mh.Heists.active && window.__mh.Heists.active.done, 8000);
+    const got = await ev(() => { const M = window.__mh; M.player.health = 100; M.exitInterior(); return { dirty: M.saveData.dirty, stars: M.Police.level, cash: M.player.cash }; });
+    if (!(got.dirty >= 150000) || got.stars < 4) throw new Error(JSON.stringify(got));
+    const w = await ev(() => { const M = window.__mh; M.Police.set(0); const h = M.services.find(s => s.type === 'hawala'); const bank0 = M.player.bank; M.serviceInteract(h); return { bank0, open: !document.getElementById('menu').hidden }; });
+    if (!w.open) throw new Error('hawala menu not open'); await tap('Enter'); await wait(300);
+    const after = await ev(() => ({ dirty: window.__mh.saveData.dirty, bank: window.__mh.player.bank }));
+    if (after.dirty !== 0 || after.bank - w.bank0 < got.dirty * 0.65) throw new Error(JSON.stringify({ got, w, after }));
+    return { loot: got.dirty, clean: after.bank - w.bank0 };
+  });
+  await check('heist: millionaire bungalow guards turn hostile, safe pays out, place locks down', async () => {
+    await reset();
+    const r = await ev(() => { const M = window.__mh; M.saveData.heists = {}; const m = M.services.find(s => s.type === 'mansion'); M.player.x = m.x; M.player.z = m.z; M.serviceInteract(m);
+      const I = M.INT.mansion; M.player.x = I.x + I.spots.safe[0]; M.player.z = I.z + I.spots.safe[1]; return { name: m.name, guards: M.Heists.guards.length, inside: M.player.interior && M.player.interior.type }; });
+    if (r.inside !== 'mansion' || r.guards < 4) throw new Error(JSON.stringify(r));
+    await wait(300); await tap('KeyE'); await until(() => window.__mh.Heists.active, 3000);
+    const hostile = await ev(() => window.__mh.Heists.guards.every(g => g.hostile && g.state === 'cop'));
+    if (!hostile) throw new Error('guards not hostile');
+    await ev(() => { const M = window.__mh; M.Heists.active.left = 0.5; M.player.health = 100; M.player.armor = 100; });
+    await until(() => window.__mh.Heists.active && window.__mh.Heists.active.done, 8000);
+    const out = await ev(() => { const M = window.__mh, svc = M.player.interior.svc; M.player.health = 100; M.exitInterior(); const locked = !M.Heists.cooled(svc); M.Police.set(0); M.saveData.dirty = 0; return { dirty: M.saveData.dirty, locked }; });
+    if (!out.locked) throw new Error('not locked down'); return r.name;
+  });
   await check('metrics: frame budget (no render)', async () => {
     const f = await ev(async () => { const t0 = performance.now(); let n = 0; await new Promise(r => { const tick = () => { n++; if (performance.now() - t0 > 2000) r(); else requestAnimationFrame(tick); }; requestAnimationFrame(tick); }); return n / 2; });
     return { rafPerSec: f };

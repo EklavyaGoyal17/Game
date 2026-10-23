@@ -14,7 +14,7 @@ from shapely.ops import substring
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 SRC = os.path.join(HERE, 'overture')
-W, S, E, N = (float(v) for v in os.environ.get('BBOX', '72.805,20.335,72.965,20.445').split(','))
+W, S, E, N = (float(v) for v in os.environ.get('BBOX', '72.805,20.315,72.99,20.445').split(','))
 CLIP = box(W - 0.01, S - 0.01, E + 0.01, N + 0.01)
 
 nodes, ways, rels = {}, {}, {}
@@ -194,11 +194,13 @@ CAT = {  # Overture basic_category -> OSM-style tags understood by the pipeline
     'warehouse_club_store': {'shop': 'supermarket'}, 'jewelry_store': {'shop': 'jewelry'}, 'auto_dealer': {'shop': 'car'}, 'vehicle_dealer': {'shop': 'car'},
     'automotive_service': {'shop': 'car_repair'}, 'automotive_repair': {'shop': 'car_repair'}, 'restaurant': {'amenity': 'restaurant'},
     'casual_eatery': {'amenity': 'restaurant'}, 'fast_food_restaurant': {'amenity': 'fast_food'}, 'cafe': {'amenity': 'cafe'}, 'farmers_market': {'amenity': 'marketplace'},
-    'market': {'amenity': 'marketplace'}, 'fire_station': {'amenity': 'fire_station'}, 'bus_station': {'amenity': 'bus_station'},
+    'market': {'amenity': 'marketplace'}, 'manufacturer': {'man_made': 'works'}, 'b2b_industrial_and_machine_service': {'man_made': 'works'},
+    'chemical_plant': {'man_made': 'works'}, 'b2b_transportation_and_storage_service': {'man_made': 'works'}, 'supplier_or_distributor': {'man_made': 'works'}, 'fire_station': {'amenity': 'fire_station'}, 'bus_station': {'amenity': 'bus_station'},
 }
 JEWEL = re.compile(r'jewel|gold|ornament|zaveri|jhaveri|diamond', re.I)
 NOISE = (round(20.3667, 4), round(72.9, 4))   # geocoder fallback point many listings share (no real location)
 loc_words = collections.defaultdict(list)
+streets = []
 SKIP_WORD = re.compile(r'\b(rd|road|floor|complex|plaza|mall|square|near|opp|marg|cir|circle|tower|hub|park|centre|center|building|shop|gujarat|india|valsad|gj|gf|main|via|service|highway|nh|sector|phase|plot|block|wing|street|lane|business|house|market|bazar|bazaar|apartment|residency|society)\b', re.I)
 for r in rows('place'):
     g = wkb.loads(r['geometry'])
@@ -211,6 +213,13 @@ for r in rows('place'):
         for part in (a.get('freeform') or '').split(','):
             p = part.strip().strip('.').title()
             if 3 <= len(p) <= 22 and not re.search(r'\d', p) and not SKIP_WORD.search(p): loc_words[p].append((g.x, g.y))
+            # street names from address lines ("Koparli Rd", "Vapi - Daman Main Rd"): voted onto the nearest road in process_vapi.py
+            st = re.sub(r'\s+', ' ', p.replace(' - ', '-').replace(' -', '-').replace('- ', '-'))
+            st = re.sub(r'\bRd\b\.?', 'Road', st); st = re.sub(r'\bMarg\b', 'Marg', st)
+            for a_, b_ in (('Silvasa', 'Silvassa'), ('Koraparli', 'Koparli'), ('Chharawada', 'Chharwada'), ('Gidc', 'GIDC'), ('Costal', 'Coastal'), ('Silvassa-Vapi', 'Vapi-Silvassa'), ('Vapi Silvassa', 'Vapi-Silvassa'), ('Vapi Daman', 'Vapi-Daman'), ('Chanodcolony', 'Chanod Colony')): st = st.replace(a_, b_)
+            if st in ('Unnamed Road', 'Main Road', 'Service Road', 'Road', 'Main Bazar Road') and st != 'Main Bazar Road': continue
+            if re.search(r'\b(Road|Marg|Highway|Path)\b', st) and 6 <= len(st) <= 34 and not re.search(r'\d|\b(Near|Opp|Behind|Nr)\b', st, re.I):
+                streets.append((g.x, g.y, st))
     if conf < 0.55 or not name: continue
     t = CAT.get(cat)
     if not t and JEWEL.search(name) and 'store' in cat: t = {'shop': 'jewelry'}
@@ -219,14 +228,15 @@ for r in rows('place'):
     node(g.x, g.y, dict(t, name=name)); stats['place'] += 1
 
 # neighbourhood labels: words used as an address part by many listings that cluster tightly in one spot
-GENERIC = {'Vapi', 'Daman', 'Nani', 'Moti', 'Gujarat', 'Road', 'Nr', 'Char Rasta', 'Vapi East', 'Vapi West', 'Ground Floor', 'First Floor', 'Second Floor', 'Shoppers Gate'}
+GENERIC = {'Vapi', 'Daman', 'Nani', 'Moti', 'Gujarat', 'Road', 'Nr', 'Char Rasta', 'Vapi East', 'Vapi West', 'Ground Floor', 'First Floor', 'Second Floor', 'Shoppers Gate', "Shopper'S Gate", 'Fort Area'}
+JUNK = re.compile(r'\b(St|Behind|Signature|Fortune|Dream|Royal|Sun)\b')
 places_out = []
 for w, pts in loc_words.items():
-    if w in GENERIC or len(pts) < 8: continue
+    if w in GENERIC or JUNK.search(w) or len(pts) < 5: continue
     xs = sorted(p[0] for p in pts); ys = sorted(p[1] for p in pts)
     mx, my = statistics.median(xs), statistics.median(ys)
     near = [p for p in pts if abs(p[0] - mx) < 0.012 and abs(p[1] - my) < 0.012]
-    if len(near) < max(6, 0.6 * len(pts)): continue
+    if len(near) < max(4, 0.6 * len(pts)): continue
     mx, my = statistics.median([p[0] for p in near]), statistics.median([p[1] for p in near])
     places_out.append((w, mx, my, len(near)))
 places_out.sort(key=lambda p: -p[3])
@@ -242,6 +252,8 @@ for r in rows('division'):
     if g.geom_type == 'Point' and r['subtype'] in ('locality', 'macrohood', 'neighborhood') and W <= g.x <= E and S <= g.y <= N and nm(r):
         node(g.x, g.y, {'place': 'suburb', 'name': {'Fort': 'Moti Daman Fort'}.get(nm(r), nm(r))})
 
+for x, y, st in streets: node(x, y, {'addr_street': st})
 pickle.dump((nodes, ways, rels), open(os.path.join(HERE, 'osm_vapi.pkl'), 'wb'))
+print('address street names', len(streets), len({s for *_, s in streets}))
 print('nodes', len(nodes), 'ways', len(ways), 'rels', len(rels), dict(stats))
 print('neighbourhoods', [(w, n) for w, x, y, n in merged])

@@ -136,7 +136,7 @@ float hh(vec2 p){ vec3 p3 = fract(vec3(p.xyx) * 0.1031); p3 += dot(p3, p3.yzx + 
  if (sk > -0.5) {
    float shop = step(15.5, sk); float style = sk - 16.0 * shop; float seed = floor(vWd.z * 255.0 + 0.5);
    vec2 tuv; float col, row; bool ground = shop > 0.5 && vWd.y < 1.0;
-   if (ground) { tuv = vec2(vWd.x / 3.0, vWd.y); col = mod(floor(tuv.x) + seed, 4.0); row = 2.0; }
+   if (ground) { tuv = vec2(vWd.x / 3.0, vWd.y); col = mod(floor(tuv.x) + seed, 3.0); row = 2.0; }
    else { tuv = vec2(vWd.x / 3.0, (vWd.y - shop) / 2.0); col = mod(style, 4.0); row = floor(style / 4.0 + 0.01); }
    vec2 f = fract(tuv) * 0.992 + 0.004;
    vec2 auv = vec2((col + f.x) / 4.0, (row + 1.0 - f.y) / 4.0);

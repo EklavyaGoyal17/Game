@@ -10,7 +10,7 @@ from shapely.prepared import prep
 
 os.chdir(os.path.dirname(os.path.abspath(__file__)))
 nodes, ways, rels = pickle.load(open('osm_vapi.pkl', 'rb'))
-_W, _S, _E, _N = (float(v) for v in os.environ.get('BBOX', '72.805,20.335,72.965,20.445').split(','))
+_W, _S, _E, _N = (float(v) for v in os.environ.get('BBOX', '72.805,20.315,72.99,20.445').split(','))
 LAT0, LON0 = round((_S + _N) / 2, 6), round((_W + _E) / 2, 6)
 KX = 111320 * math.cos(math.radians(LAT0)); KZ = 110574
 def proj(nid):
@@ -199,6 +199,44 @@ for s in adj:
 for e in edges:
     if e['c'] <= 4 and e['a'] in best and e['b'] in best: e['t'] = 1
 print('traffic edges', sum(1 for e in edges if e.get('t')))
+
+# ---- street names: most Vapi roads come from TomTom without names. Place listings' address lines ("Koparli Road",
+# "Vapi-Daman Main Road") vote for the nearest drivable road; names then spread along straight continuations at junctions.
+elines = [LineString([(e['p'][i] / 10, e['p'][i + 1] / 10) for i in range(0, len(e['p']), 2)]) for e in edges]
+etree = STRtree(elines)
+votes = collections.defaultdict(collections.Counter)
+for nid, (la, lo, t) in nodes.items():
+    if not t or not t.get('addr_street'): continue
+    pt = Point(*proj(nid)); best, bd = None, 45.0
+    for i in etree.query(pt.buffer(45)):
+        if edges[i]['c'] > 4: continue
+        d = elines[i].distance(pt)
+        if d < bd: bd, best = d, i
+    if best is not None: votes[best][t['addr_street']] += 1
+named0 = sum(1 for e in edges if e['n'] >= 0); voted = 0
+for i, cnt in votes.items():
+    if edges[i]['n'] < 0: edges[i]['n'] = nidx(cnt.most_common(1)[0][0]); voted += 1
+def end_dir(i, at_a):
+    cs = list(elines[i].coords); a, b = (cs[0], cs[1]) if at_a else (cs[-1], cs[-2])
+    dx, dz = b[0] - a[0], b[1] - a[1]; l = math.hypot(dx, dz) or 1; return dx / l, dz / l
+node_edges = collections.defaultdict(list)
+for i, e in enumerate(edges):
+    if e['c'] <= 5: node_edges[e['a']].append((i, True)); node_edges[e['b']].append((i, False))
+spread = 0; budget = collections.Counter()
+for _ in range(80):
+    changed = 0
+    for i, e in enumerate(edges):
+        if e['n'] < 0 or e['c'] > 5: continue
+        for at_a in (True, False):
+            nd = e['a'] if at_a else e['b']; d0 = end_dir(i, at_a); best, bdef = None, 32
+            for j, ja in node_edges[nd]:
+                if j == i: continue
+                d1 = end_dir(j, ja); defl = math.degrees(math.acos(max(-1, min(1, -(d0[0] * d1[0] + d0[1] * d1[1])))))
+                if defl < bdef and abs(edges[j]['c'] - e['c']) <= 1: bdef, best = defl, j
+            if best is not None and edges[best]['n'] < 0 and budget[e['n']] < 6000:
+                edges[best]['n'] = e['n']; budget[e['n']] += elines[best].length; changed += 1; spread += 1
+    if not changed: break
+print('street names: osm/tomtom', named0, '+ from addresses', voted, '+ spread', spread, '=', sum(1 for e in edges if e['n'] >= 0), '/', len(edges))
 
 # road polygons for tree/building checks
 road_polys = []
@@ -507,7 +545,11 @@ comm = [p for p, t, _ in area_polys_for(lambda t: t.get('landuse') in ('commerci
 comm_u = prep(unary_union(comm)) if comm else None
 # GIDC: Vapi's chemical / paper / pharma estates are long low sheds, not apartment blocks
 ind = [p for p, t, _ in area_polys_for(lambda t: t.get('landuse') in ('industrial', 'quarry'))]
+works_pts = [Point(*proj(nid)).buffer(140) for nid, (la, lo, t) in nodes.items() if t and t.get('man_made') == 'works']
+ind = ind + works_pts   # factories listed by name (manufacturers, chemical plants, godowns) mark their surroundings as estate land
 ind_u = prep(unary_union(ind).buffer(15)) if ind else None
+resid = [p for p, t, _ in area_polys_for(lambda t: t.get('landuse') == 'residential')]
+resid_u = prep(unary_union(resid)) if resid else None
 major = prep(unary_union([LineString([(e['p'][i] / 10, e['p'][i + 1] / 10) for i in range(0, len(e['p']), 2)]) for e in edges if e['c'] <= 1]).buffer(45))
 home_pt = Point(0, 0)
 vx_, vz_ = (VAPI_CENTRE[1] - LON0) * KX, (LAT0 - VAPI_CENTRE[0]) * KZ
@@ -570,13 +612,23 @@ for bi_, (p, t, wid) in enumerate(bpolys):
     except: lv = None
     a = p.area; r = h01(wid)
     industrial = ind_u is not None and ind_u.contains(cen) and a > 120 and not style
+    rect = a / max(p.minimum_rotated_rectangle.area, 1e-6)   # 1 = a clean rectangle (planned blocks, sheds)
+    daman = cen.x < (72.86 - LON0) * KX                       # Daman: old low-rise town, beach hotels
+    resid = resid_u is not None and resid_u.contains(cen)
+    cat = (pt_ or {})
     if lv is None:
-        if industrial: lv = 2 + int(r * 2.2)                 # GIDC sheds and reactor halls, 6-10 m
+        if industrial: lv = (3 if a > 3000 else 2) + int(r * 1.6)   # GIDC sheds and reactor halls, 6-13 m
+        elif cat.get('tourism') == 'hotel': lv = 4 + int(r * 4)
+        elif cat.get('amenity') == 'hospital': lv = 4 + int(r * 3)
+        elif cat.get('amenity') in ('college', 'school'): lv = 3 + int(r * 2)
         elif a < 60: lv = 1 + int(r * 2)
         elif a < 200: lv = 2 + int(r * 2)                    # town houses, 2-3 floors
-        elif a < 700: lv = 3 + int(r * 3)                    # shop-houses and small blocks
-        elif a < 2500: lv = 4 + int(r * 4)                   # apartment blocks of Chala / Vapi town
+        elif 250 < a < 1600 and rect > 0.82 and (resid or math.hypot(cen.x - vx_, cen.y - vz_) < 4500):
+            lv = 4 + int(r * 4)                              # planned housing societies: G+3 to G+6 rectangular blocks
+        elif a < 700: lv = 3 + int(r * 2)                    # shop-houses and small blocks
+        elif a < 2500: lv = 3 + int(r * 4)
         else: lv = 2 + int(r * 3)                            # big footprints: warehouses, malls, schools
+        if daman and cat.get('tourism') != 'hotel': lv = min(lv, 2 + int(h01(wid, 'd') * 2.5))
         if major.contains(cen) and not industrial: lv += int(h01(wid, 'm') * 2.5)
         if comm_u is not None and comm_u.contains(cen): lv += 1
         if t.get('building') in ('house', 'hut', 'shed', 'garage', 'roof', 'kiosk'): lv = min(lv, 2)
@@ -586,7 +638,7 @@ for bi_, (p, t, wid) in enumerate(bpolys):
     tagged = bool(t.get('height') or t.get('building:levels'))
     # Vapi's high-rise residential towers cluster within a few km of the town centre (Chala, Vapi-Daman road, Koparli road)
     dc = math.hypot(cen.x - vx_, cen.y - vz_)
-    if not tagged and not industrial and not style and 450 < a < 3200 and dc < 3200 and h01(wid, 'tw') < 0.09 * (1 - dc / 3600):
+    if not tagged and not industrial and not style and not daman and 450 < a < 3200 and rect > 0.7 and dc < 3200 and h01(wid, 'tw') < 0.06 * (1 - dc / 3600):
         lv = max(lv, 11 + int(h01(wid, 'tl') * 9))
     if lv >= 8: lv = lv * 1.4
     if t.get('aeroway') == 'terminal': lv = max(lv, 4); style = 'modern'; cand = 'daman airport terminal'

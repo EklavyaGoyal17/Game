@@ -2,7 +2,7 @@
 // Facade atlas: 4x4 tiles of 512px. Façade tiles = 3 bays x 2 floors; shop tiles = 3 bays x 1 floor.
 // RGB = colour (plaster is near-white so vertex colours tint it), A = glass / lit mask.
 const ATLAS = 2048, TILE = 512;
-const SHOP_NAMES = ['SRI MURUGAN STORES', 'KAVERI SILKS', 'MOBILE WORLD', 'BIRYANI CENTRE', 'APOLLO MEDICALS', 'TEA STALL', 'LAKSHMI TEXTILES', 'GOLD JEWELLERY', 'SWEETS & SNACKS', 'HARDWARE', 'BAKERY', 'TIFFIN CENTRE', 'XEROX', 'OPTICALS', 'FANCY STORE', 'AGENCIES', 'ELECTRICALS', 'PROVISION STORE', 'SAREES', 'FOOTWEAR', 'MESS', 'TRAVELS', 'PHARMACY', 'SPARE PARTS', 'COOL DRINKS', 'FILTER COFFEE'];
+const SHOP_NAMES = ['SHREE GANESH KIRANA', 'AMBIKA TEXTILES', 'MOBILE WORLD', 'JALARAM KHAMAN HOUSE', 'PATEL MEDICAL STORES', 'CHA NI KITLI', 'SHREEJI JEWELLERS', 'GUJARAT SWEETS & FARSAN', 'MAHADEV HARDWARE', 'BAKERY', 'THALI RESTAURANT', 'XEROX', 'OPTICALS', 'FANCY STORE', 'AGENCIES', 'ELECTRICALS', 'PROVISION STORE', 'SAREE CENTRE', 'FOOTWEAR', 'PAN PARLOUR', 'TRAVELS', 'PHARMACY', 'SPARE PARTS', 'COLD DRINKS', 'DABELI CENTRE', 'BHAGWATI STEEL'];
 const SIGN_BG = ['#c8251c', '#f2c41f', '#1f4fb3', '#178a45', '#ef7d16', '#f4f1e8', '#8a1e74', '#0f6e8c', '#d8326b', '#1a1a1a'];
 function makeFacadeAtlas() {
   const cv = document.createElement('canvas'); cv.width = cv.height = ATLAS; const x = cv.getContext('2d');
@@ -91,8 +91,8 @@ function makeFacadeAtlas() {
   // ---- 7: mall / showroom ----
   { const [ox, oy] = T(3, 1); x.fillStyle = '#cfd4d6'; x.fillRect(ox, oy, TILE, TILE);
     glass(ox + 20, oy + 30, TILE - 40, FL * 2 - 80, [30, 52, 70]); x.fillStyle = '#e8ecee'; for (let i = 0; i <= 4; i++) x.fillRect(ox + 20 + i * (TILE - 40) / 4 - 4, oy + 30, 8, FL * 2 - 80); x.fillRect(ox + 20, oy + FL - 4, TILE - 40, 10); }
-  // ---- 8-11: shopfronts (1 floor) ----
-  for (let k = 0; k < 4; k++) {
+  // ---- 8-10: shopfronts (1 floor) ----
+  for (let k = 0; k < 3; k++) {
     const [ox, oy] = T(k, 2);
     plaster(ox, oy, TILE, TILE, 210, 14);
     let sx = ox;
@@ -123,6 +123,13 @@ function makeFacadeAtlas() {
     }
     x.fillStyle = 'rgba(0,0,0,0.25)'; x.fillRect(ox, oy + 146, TILE, 10);
   }
+  // ---- 11: corrugated metal cladding (GIDC sheds): vertical ribs, a clerestory strip of glazing, a roller-shutter bay ----
+  { const [ox, oy] = T(3, 2); x.fillStyle = '#d6dadc'; x.fillRect(ox, oy, TILE, TILE);
+    for (let i = 0; i < 64; i++) { const sx = ox + i * TILE / 64; x.fillStyle = 'rgba(0,0,0,0.13)'; x.fillRect(sx, oy, 2.5, TILE); x.fillStyle = 'rgba(255,255,255,0.22)'; x.fillRect(sx + 3.5, oy, 1.5, TILE); }
+    x.fillStyle = 'rgba(70,55,40,0.16)'; for (let i = 0; i < 5; i++) { const sx = ox + R() * TILE; x.fillRect(sx, oy + R() * 120, 3 + R() * 6, 160 + R() * 200); }   // rust streaks
+    glass(ox, oy + 36, TILE, 34, [44, 60, 66]); x.fillStyle = '#9aa1a5'; for (let i = 0; i <= 8; i++) x.fillRect(ox + i * TILE / 8 - 2, oy + 36, 4, 34);
+    x.fillStyle = 'rgba(0,0,0,0.25)'; x.fillRect(ox, oy + TILE / 2 - 4, TILE, 6);
+    x.fillStyle = 'rgba(40,40,40,0.2)'; x.fillRect(ox, oy + TILE - 26, TILE, 26); }
   // ---- 12: Indo-Saracenic red brick with arches ----
   { const [ox, oy] = T(0, 3); x.fillStyle = '#b4523a'; x.fillRect(ox, oy, TILE, TILE);
     for (let i = 0; i < 900; i++) { x.fillStyle = `rgba(${R() < 0.5 ? '0,0,0' : '255,220,200'},0.06)`; x.fillRect(ox + R() * TILE, oy + R() * TILE, 14, 5); }

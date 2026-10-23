@@ -8,7 +8,7 @@ import os, sys, pickle, time
 import pyarrow.fs as pafs, pyarrow.parquet as pq, pyarrow.compute as pc, pyarrow as pa
 
 RELEASE = os.environ.get('OVERTURE_RELEASE', '2026-10-21.0')
-BBOX = tuple(float(v) for v in os.environ.get('BBOX', '72.81,20.33,72.96,20.45').split(','))  # W,S,E,N
+BBOX = tuple(float(v) for v in os.environ.get('BBOX', '72.805,20.315,72.99,20.445').split(','))  # W,S,E,N
 THEME = {'building': 'buildings', 'segment': 'transportation', 'connector': 'transportation', 'water': 'base', 'land_use': 'base',
          'land': 'base', 'infrastructure': 'base', 'land_cover': 'base', 'place': 'places', 'division_area': 'divisions', 'division': 'divisions'}
 

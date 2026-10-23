@@ -106,6 +106,7 @@ function subPoly(E, s0, s1) {
 }
 function pickStyle(b, kind, seed, h) {
   if (b.home) return 1;
+  if (b.ind) return 11;   // metal-clad GIDC shed
   if (b.s === 'saracenic') return 12; if (b.s === 'saracenic_w' || b.s === 'fort') return 13; if (b.s === 'stadium') return 15;
   if (b.s === 'modern') return seed < 0.5 ? 7 : 4; if (b.s === 'tower') return 6;
   if (b.tm) return 14;
@@ -235,7 +236,7 @@ async function initWorld(progress) {
     else addWallRing(pts, hh);
     const pi = bPolys.length; bPolys.push({ pts, minx, maxx, minz, maxz, h: hh, name: b.n || '', A, cx, cz, area });
     gridAdd(bPolyGrid, BC, minx, minz, maxx, maxz, pi);
-    const rec = { pts, h, hh, A, area, cx, cz, seed, k: b.k, s: b.s, ln: b.ln, tm: b.tm, n: b.n, bi, pi, isStadium };
+    const rec = { pts, h, hh, A, area, cx, cz, seed, k: b.k, s: b.s, ln: b.ln, tm: b.tm, n: b.n, bi, pi, isStadium, ind: !!b.in };
     BLD.push(rec); chunkAt(cx, cz).bld.push(BLD.length - 1);
     if (b.s && (b.s.startsWith('saracenic') || /railway station/.test(b.ln || '')) && area > 200) { const k = b.ln || b.s; if (!lmLargest[k] || lmLargest[k].area < area) lmLargest[k] = { area, cx, cz, h, pts, s: b.s, ln: b.ln }; }
     if (h > 55 && area > 350 && pointInPoly(cx, cz, pts)) tallTowers.push(pi);
@@ -385,18 +386,44 @@ function buildNear(c) {
 const TANK_GEO = (() => { const g = new THREE.CylinderGeometry(0.75, 0.75, 1.5, 12); g.translate(0, 0.75, 0); return g; })();
 M.bill.side = THREE.DoubleSide; M.curb.side = THREE.DoubleSide;
 
+// GIDC sheds: a pitched metal roof along the long side of the footprint's best-fit rectangle, plus a few roof vents
+const IND_PAL = [0xc9d3da, 0x9fb4c4, 0xe4e6e2, 0x8fa6a0, 0xb9b2a4, 0x7f9bb8, 0xd8d0c2];
+function shedRoof(B, col) {
+  const { pts, hh, area, cx, cz, bi } = B; if (area < 120 || pts.length > 12) return;
+  let best = null;
+  for (let i = 0; i < pts.length; i++) {   // minimum-area rectangle over the edge directions
+    const p = pts[i], q = pts[(i + 1) % pts.length], a = Math.atan2(q[1] - p[1], q[0] - p[0]), c = Math.cos(a), s = Math.sin(a);
+    let u0 = 1e9, u1 = -1e9, v0 = 1e9, v1 = -1e9; for (const [x, z] of pts) { const u = x * c + z * s, v = -x * s + z * c; u0 = Math.min(u0, u); u1 = Math.max(u1, u); v0 = Math.min(v0, v); v1 = Math.max(v1, v); }
+    const A = (u1 - u0) * (v1 - v0); if (!best || A < best.A) best = { A, a, u0, u1, v0, v1 };
+  }
+  if (!best || area / best.A < 0.78) return;   // irregular footprints keep their flat roof
+  let { a, u0, u1, v0, v1 } = best; if (v1 - v0 > u1 - u0) { a += Math.PI / 2; [u0, u1, v0, v1] = [v0, v1, -u1, -u0]; }
+  const c = Math.cos(a), s = Math.sin(a), W = (p, q, y) => [p * c - q * s, y, p * s + q * c];
+  const span = v1 - v0, rise = Math.min(4.5, span * 0.16), vm = (v0 + v1) / 2, y0 = hh + 0.05;
+  const metal = new THREE.Color(hash2(bi, 31) < 0.5 ? 0x9aa6ad : 0x6f8796).multiplyScalar(0.9 + hash2(bi, 33) * 0.2), gable = col.clone().multiplyScalar(0.92);
+  const A1 = W(u0, v0, y0), B1 = W(u1, v0, y0), C1 = W(u1, vm, y0 + rise), D1 = W(u0, vm, y0 + rise), A2 = W(u0, v1, y0), B2 = W(u1, v1, y0);
+  const n1 = [-s * rise, span / 2, c * rise], l1 = Math.hypot(...n1), n2 = [s * rise, span / 2, -c * rise];
+  const tri = (P, Q, R, n, cl) => { const ux = Q[0] - P[0], uy = Q[1] - P[1], uz = Q[2] - P[2], vx = R[0] - P[0], vy = R[1] - P[1], vz = R[2] - P[2]; const ny = uz * vx - ux * vz; if (ny < 0 && n[1] > 0) decor.tri(P, R, Q, n[0], n[1], n[2], cl); else decor.tri(P, Q, R, n[0], n[1], n[2], cl); };
+  tri(A1, B1, C1, n1.map(v => v / l1), metal); tri(A1, C1, D1, n1.map(v => v / l1), metal);
+  tri(A2, D1, C1, n2.map(v => v / l1), metal); tri(A2, C1, B2, n2.map(v => v / l1), metal);
+  decor.tri(A1, D1, A2, -c, 0, -s, gable); decor.tri(A1, A2, D1, c, 0, s, gable);   // gable ends (both faces)
+  decor.tri(B1, B2, C1, c, 0, s, gable); decor.tri(B1, C1, B2, -c, 0, -s, gable);
+  const vents = Math.min(6, Math.floor((u1 - u0) / 14));   // turbo ventilators along the ridge
+  for (let k = 1; k <= vents; k++) { const P = W(u0 + (u1 - u0) * k / (vents + 1), vm, y0 + rise); cylTo(decor, P[0], P[1], P[2], 0.35, 0.45, 0.9, 8, _col.setHex(0xc8cdd0)); }
+}
 function emitBuilding(buf, B, full, tanks) {
   const { pts, h, A, area, cx, cz, seed, bi } = B;
   const kind = B.k === 3 ? 5 : B.k;
   let hex;
   if (B.s) hex = STYLE_COL[B.s] || 0xd8d0c0;
   else if (B.tm) hex = 0xffffff;
+  else if (B.ind) hex = IND_PAL[Math.floor(seed * 997) % IND_PAL.length];
   else { const pal = kind === 1 ? WALL_PAL.comm : kind === 2 ? WALL_PAL.house : WALL_PAL.res; hex = pal[Math.floor(seed * 997) % pal.length]; }
   const col = new THREE.Color(hex).multiplyScalar(0.9 + hash2(bi, 3) * 0.12);
   const roof = new THREE.Color(0xc9c4ba).multiplyScalar(0.85 + hash2(bi, 5) * 0.2);
   const pcol = col.clone().multiplyScalar(0.92);
   const style = pickStyle(B, kind, seed, h);
-  const shop = !B.s && !B.tm && h >= 5.5 && h < 60 && (kind === 1 || (kind === 0 && seed > 0.4) || (kind === 2 && seed > 0.85)) ? 16 : 0;
+  const shop = !B.s && !B.tm && !B.ind && h >= 5.5 && h < 60 && (kind === 1 || (kind === 0 && seed > 0.4) || (kind === 2 && seed > 0.85)) ? 16 : 0;
   const hh = B.hh;
   let inner = null;
   if (B.isStadium) inner = pts.map(p => [cx + (p[0] - cx) * 0.6, cz + (p[1] - cz) * 0.6]);
@@ -420,7 +447,7 @@ function emitBuilding(buf, B, full, tanks) {
   doWalls(pts, false, 0, hh, style + shop, col);
   if (inner) doWalls(inner, true, 0, hh * 0.8, 15, col);
   const PW = [0, 0, 0, -1], RW = [0, 0, 0, -2];
-  if (full && !B.isStadium && area > 25 && style !== 4 && style !== 7) {
+  if (full && !B.isStadium && !B.ind && area > 25 && style !== 4 && style !== 7) {
     const ph = 0.95, ip = insetPoly(pts, 0.22, A);
     doWalls(pts, false, hh, hh + ph, 15, pcol);
     for (let i = 0; i < ip.length; i++) {
@@ -451,6 +478,7 @@ function emitBuilding(buf, B, full, tanks) {
     buf.tri(A3, B3, C3, 0, 1, 0, roof, RW, RW, RW);
   }
   if (!full) return;
+  if (B.ind) { shedRoof(B, col); return; }
   const r1 = hash2(bi, 7), r2 = hash2(bi, 11);
   if (!B.s && kind !== 5 && area > 50 && area < 1200 && h < 45 && r1 < 0.6 && pointInPoly(cx, cz, pts)) {
     const ox = (r2 - 0.5) * Math.sqrt(area) * 0.3, oz = (hash2(bi, 13) - 0.5) * Math.sqrt(area) * 0.3;

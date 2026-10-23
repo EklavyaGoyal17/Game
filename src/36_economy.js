@@ -186,8 +186,8 @@ function setupServices() {
   // gun shops - pick electronics/hardware-ish spots spread out
   for (const p of spaced(byT('electronics').concat(byT('clothes')), 1700).slice(0, 9)) doorFor(p, 'gun');
   for (const p of spaced(byT('store'), 450)) doorFor(p, 'store');
-  for (const p of spaced(byT('jewel'), 700)) doorFor(p, 'jewel');
-  for (const p of spaced(byT('bank'), 650)) doorFor(p, 'bank');
+  for (const p of spaced(byT('jewel'), 300)) doorFor(p, 'jewel');
+  for (const p of spaced(byT('bank'), 350)) doorFor(p, 'bank');
   for (const p of spaced(byT('atm').concat(byT('bank')), 260)) { const s = streetSpot(p.x, p.z); if (s) addService('atm', s.x + s.tz * (s.hw + 1.6), s.z - s.tx * (s.hw + 1.6), { h: s.h }); }
   for (const p of spaced(byT('cars'), 2500).slice(0, 5)) doorFor(p, 'dealer');
   for (const p of spaced(byT('fuel').concat(G.pois.filter(q => q.t === 'fuel')), 500)) { const s = streetSpot(p.x, p.z); if (s && s.hw < 9) addService('fuel', s.x, s.z, { h: s.h, r: 6 }); }
@@ -322,7 +322,7 @@ function updateRobbery(dt) {
       robbery.amount = Math.min(robbery.max, robbery.amount + robbery.max * dt / 7);
       w.p.arms[0].rotation.x = -2.8; w.p.arms[1].rotation.x = -2.8;
       setObjective(`Robbing… ${money(robbery.amount)}`);
-      if (robbery.amount >= robbery.max) { robbery.done = true; addCash(Math.round(robbery.max)); toast('Cash grabbed! Get out before the cops arrive.'); Police.set(Math.max(Police.level, type === 'store' ? 2 : 3)); saveData.stats.robberies = (saveData.stats.robberies || 0) + 1; }
+      if (robbery.amount >= robbery.max) { robbery.done = true; Heists.addDirty(Math.round(robbery.max)); toast('Cash grabbed! Get out before the cops arrive, then launder it.'); Police.set(Math.max(Police.level, type === 'store' ? 2 : 3)); saveData.stats.robberies = (saveData.stats.robberies || 0) + 1; }
     }
   }
 }

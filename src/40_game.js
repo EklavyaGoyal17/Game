@@ -392,6 +392,7 @@ function doRespawn() {
   const [fx, fz] = freeSpot(s.x, s.z); player.x = fx; player.z = fz; player.y = sidewalkY(fx, fz); player.vx = player.vz = 0; player.downT = 0; player.dead = false; player.health = 100;
   pMesh.root.visible = true; pMesh.inner.rotation.x = 0;
   let msg;
+  Heists.lose(respawnAt.kind === 'hospital' ? 'Wasted' : 'Busted');
   if (respawnAt.kind === 'hospital') { const fee = Math.min(player.cash + player.bank, 1000); spend(fee); msg = 'Hospital bill ' + money(fee); }
   else { const lost = player.cash; player.cash = 0; player.weapons = {}; equip('fists'); msg = 'Busted: lost ' + money(lost) + ' cash and your weapons'; }
   toast(msg + (p ? ' · ' + p.n : '')); respawnAt = null; camSmoothed = false; saveGame(true);
@@ -580,6 +581,57 @@ function drawMinimap() {
   const c = Math.cos(rot), s = Math.sin(rot); const nx = R + (s) * (R - 16), ny = R + (-c) * (R - 16);
   ctx.font = '700 26px "Barlow Condensed", sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.lineWidth = 5; ctx.strokeStyle = '#000'; ctx.strokeText('N', nx, ny); ctx.fillStyle = '#f6c21c'; ctx.fillText('N', nx, ny);
 }
+// ---------- map labels: street names along the roads + landmarks, decluttered on a screen grid ----------
+let streetCands = null;
+function buildStreetCands() {
+  // one candidate per long straight-ish piece of each named road; main roads first so they win the space
+  streetCands = [];
+  for (const E of G.edges) {
+    if (!E.name || E.c > 4 || E.len < 45) continue;
+    const k = Math.floor(E.xs.length / 2), k2 = Math.min(E.xs.length - 1, k + 1), k1 = k2 - 1;
+    const mx = (E.xs[k1] + E.xs[k2]) / 2, mz = (E.zs[k1] + E.zs[k2]) / 2;
+    let ang = Math.atan2(E.zs[k2] - E.zs[k1], E.xs[k2] - E.xs[k1]); if (ang > Math.PI / 2) ang -= Math.PI; if (ang < -Math.PI / 2) ang += Math.PI;
+    streetCands.push({ n: E.name, x: mx, z: mz, ang, c: E.c, len: E.len });
+  }
+  streetCands.sort((a, b) => a.c - b.c || b.len - a.len);
+}
+const LANDMARK_TYPES = { station: '#c9b37a', airport: '#ffffff', port: '#37d6ff', mall: '#ff8a1a', hospital: '#e04040', stadium: '#7fd39a', sight: '#f6c21c', cinema: '#d24cff', college: '#9fc4dc', worship: '#ffb87a', police: '#5aa0ff' };
+function drawMapLabels(ctx, S, W, H) {
+  if (!streetCands) buildStreetCands();
+  const used = new Set(), cell = 46, seen = new Map();
+  const free = (a, b, w, h) => { const x0 = Math.floor((a - w / 2) / cell), x1 = Math.floor((a + w / 2) / cell), y0 = Math.floor((b - h / 2) / cell), y1 = Math.floor((b + h / 2) / cell);
+    for (let i = x0; i <= x1; i++) for (let j = y0; j <= y1; j++) if (used.has(i + ',' + j)) return false;
+    for (let i = x0; i <= x1; i++) for (let j = y0; j <= y1; j++) used.add(i + ',' + j); return true; };
+  ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  // landmarks (stations, airport, malls, hospitals, forts, temples...) appear as you zoom in
+  const minC = bm.scale > 0.9 ? 99 : bm.scale > 0.45 ? 2 : 1;
+  for (const p of G.pois) {
+    const col = LANDMARK_TYPES[p.t]; if (!col || p.n.length > 32) continue;
+    const big = p.t === 'station' || p.t === 'airport' || p.t === 'port';
+    if (!big && (bm.scale < 0.45 || (p.t === 'worship' || p.t === 'college' || p.t === 'police') && bm.scale < 0.9)) continue;
+    const [a, b] = S(p.x, p.z); if (a < 0 || b < 0 || a > W || b > H) continue;
+    ctx.font = `${big ? 700 : 600} ${big ? 14 : 12}px "Barlow Condensed", sans-serif`; const w = ctx.measureText(p.n).width + 14;
+    if (!free(a, b - 12, w, 18)) continue;
+    ctx.beginPath(); ctx.arc(a, b, 3.5, 0, TAU); ctx.fillStyle = col; ctx.fill();
+    ctx.lineWidth = 3.5; ctx.strokeStyle = 'rgba(0,0,0,.85)'; ctx.strokeText(p.n, a, b - 12); ctx.fillStyle = col; ctx.fillText(p.n, a, b - 12);
+  }
+  // street names rotated along the road
+  if (bm.scale < 0.22) return;
+  const maxC = bm.scale > 0.7 ? 4 : bm.scale > 0.4 ? 3 : bm.scale > 0.3 ? 2 : 1;
+  const gap = 260 / bm.scale;   // repeat a name at most every ~260 px on screen
+  let n = 0;
+  for (const s of streetCands) {
+    if (s.c > maxC) continue;
+    const [a, b] = S(s.x, s.z); if (a < 20 || b < 20 || a > W - 20 || b > H - 20) continue;
+    const prev = seen.get(s.n); if (prev && prev.some(q => dist2(q[0], q[1], s.x, s.z) < gap * gap)) continue;
+    ctx.font = `600 ${s.c <= 1 ? 13 : 11}px "Barlow Condensed", sans-serif`; const w = ctx.measureText(s.n).width + 8;
+    if (s.len * bm.scale < w * 0.6) continue;   // road too short on screen for its name
+    const cw = Math.abs(Math.cos(s.ang)) * w + 14, ch = Math.abs(Math.sin(s.ang)) * w + 14; if (!free(a, b, cw, ch)) continue;
+    ctx.save(); ctx.translate(a, b); ctx.rotate(s.ang);
+    ctx.lineWidth = 3; ctx.strokeStyle = 'rgba(20,22,24,.9)'; ctx.strokeText(s.n, 0, 0); ctx.fillStyle = s.c <= 1 ? '#fff3c4' : '#e6e1d4'; ctx.fillText(s.n, 0, 0); ctx.restore();
+    (prev || seen.set(s.n, []).get(s.n)).push([s.x, s.z]); if (++n > 220) break;
+  }
+}
 // ---------- big map ----------
 const bm = { open: false, scale: 0, ox: 0, oy: 0, drag: null };
 const bmc = $('bigmapCanvas'), bctx = bmc.getContext('2d');
@@ -605,13 +657,14 @@ function drawBigMap() {
     const [a, b] = S(p.x, p.z); ctx.font = `${p.s ? 700 : 600} ${p.s ? 16 : 12}px "Barlow Condensed", sans-serif`;
     ctx.lineWidth = 4; ctx.strokeStyle = 'rgba(0,0,0,.8)'; const t = p.s ? p.n.toUpperCase() : p.n; ctx.strokeText(t, a, b); ctx.fillStyle = p.s ? '#f3e8c8' : '#bdb6a2'; ctx.fillText(t, a, b);
   }
+  drawMapLabels(ctx, S, W, H);
   for (const bl of blipList(true)) { const [a, b] = S(bl.x, bl.z); if (a < -20 || b < -20 || a > W + 20 || b > H + 20) continue; drawBlip(ctx, a, b, bl.col, (bl.r || 6) * 1.4, bl.label || ''); }
   const [px, pz] = S(player.x, player.z); const ph = player.veh ? player.veh.h : player.h;
   ctx.save(); ctx.translate(px, pz); ctx.rotate(Math.atan2(Math.cos(ph), Math.sin(ph))); ctx.beginPath(); ctx.moveTo(12, 0); ctx.lineTo(-8, 8); ctx.lineTo(-4, 0); ctx.lineTo(-8, -8); ctx.closePath(); ctx.fillStyle = '#fbf3dc'; ctx.fill(); ctx.strokeStyle = '#000'; ctx.lineWidth = 2; ctx.stroke(); ctx.restore();
   ctx.font = '400 22px Bungee, Impact, sans-serif'; ctx.textAlign = 'right'; ctx.fillStyle = '#f6c21c'; ctx.fillText('VAPI · DAMAN', W - 24, H - 40);
   // legend
-  ctx.textAlign = 'left'; ctx.font = '600 14px "Barlow Condensed", sans-serif'; let ly = H - 210;
-  for (const k of ['gun', 'store', 'jewel', 'bank', 'dealer', 'fuel', 'spray', 'hangar', 'marina', 'station', 'forsale']) { const st = SERVICE_STYLE[k]; drawBlip(ctx, 34, ly, st.col, 8, st.icon); ctx.fillStyle = '#ddd'; ctx.fillText(st.label, 50, ly + 1); ly += 19; }
+  ctx.textAlign = 'left'; ctx.font = '600 14px "Barlow Condensed", sans-serif'; let ly = H - 250;
+  for (const k of ['gun', 'store', 'jewel', 'bank', 'mansion', 'hawala', 'dealer', 'fuel', 'spray', 'hangar', 'marina', 'station', 'forsale']) { const st = SERVICE_STYLE[k]; drawBlip(ctx, 34, ly, st.col, 8, st.icon); ctx.textAlign = 'left'; ctx.font = '600 14px "Barlow Condensed", sans-serif'; ctx.fillStyle = '#ddd'; ctx.fillText(st.label, 50, ly + 1); ly += 19; }
 }
 bmc.addEventListener('wheel', e => { e.preventDefault(); const k = Math.exp(-e.deltaY * 0.0015); const ns = clamp(bm.scale * k, 0.05, 3); const mx = e.clientX, my = e.clientY; bm.ox = mx - (mx - bm.ox) * ns / bm.scale; bm.oy = my - (my - bm.oy) * ns / bm.scale; bm.scale = ns; drawBigMap(); }, { passive: false });
 bmc.addEventListener('mousedown', e => { bm.drag = { x: e.clientX, y: e.clientY, ox: bm.ox, oy: bm.oy, moved: false }; });
@@ -728,7 +781,7 @@ function setPaused(v) {
   if (v) {
     if (document.pointerLockElement) document.exitPointerLock();
     const done = saveData.done.length;
-    $('progress').innerHTML = `Missions <b>${done}/${MISSIONS.length}</b><br>Hidden packages <b>${saveData.packages.length}/${packages.length}</b><br>Properties <b>${saveData.props.length}/${PROPERTIES.length}</b><br>Rides <b>${saveData.rides || 0}</b> · Robberies <b>${saveData.stats.robberies || 0}</b><br>Cash <b class="g">${money(player.cash)}</b> · Bank <b class="g">${money(player.bank)}</b>`;
+    $('progress').innerHTML = `Missions <b>${done}/${MISSIONS.length}</b><br>Hidden packages <b>${saveData.packages.length}/${packages.length}</b><br>Properties <b>${saveData.props.length}/${PROPERTIES.length}</b><br>Rides <b>${saveData.rides || 0}</b> · Robberies <b>${saveData.stats.robberies || 0}</b> · Heists <b>${saveData.stats.heists || 0}</b><br>Dirty cash <b>${money(saveData.dirty || 0)}</b> · Laundered <b>${money(saveData.stats.laundered || 0)}</b><br>Cash <b class="g">${money(player.cash)}</b> · Bank <b class="g">${money(player.bank)}</b>`;
     $('resetConfirm').hidden = true;
   } else canvas.focus();
 }
@@ -909,7 +962,7 @@ async function boot() {
   window.__mh = {
     setHour: h => { hour = h; }, tp: (x, z, yaw, pitch = 0.32, mode = 0) => { if (player.veh) exitVehicle(); const r = roadQuery(x, z, 60, 0); if (r.seg) { x = r.px; z = r.pz; } player.x = x; player.z = z; player.y = 0; camYaw = yaw; camPitch = pitch; camMode = mode; camSmoothed = false; player.h = yaw; updateChunks(x, z, 1e9, true); },
     drive: (type, x, z, h) => { const r = roadQuery(x, z, 60, 0); if (r.seg) { x = r.px; z = r.pz; h = headingTo(r.seg.bx - r.seg.ax, r.seg.bz - r.seg.az); } const v = new Vehicle(type, undefined, x, z, h); traffic.push(v); enterVehicle(v); camYaw = h; camSmoothed = false; updateChunks(x, z, 1e9, true); return v; },
-    failMission, serviceInteract, walkPolys, walkSurfaceAt, centroidOf: centroid, Airport, Metro, Living, Dialogue, get GMaps() { return GMaps; }, Cheats, UI, MissionFW, Settings, nextStep, interiorCollide, get waypoint() { return waypoint; }, sanitizeSave, WorldFix, railLines, Weather, Assets, EventBus, Systems, Triggers, Layers, get gradePass() { return gradePass; },
+    failMission, serviceInteract, walkPolys, walkSurfaceAt, centroidOf: centroid, Airport, Metro, Living, Dialogue, get GMaps() { return GMaps; }, get Heists() { return Heists; }, Cheats, UI, MissionFW, Settings, nextStep, interiorCollide, get waypoint() { return waypoint; }, sanitizeSave, WorldFix, railLines, Weather, Assets, EventBus, Systems, Triggers, Layers, get gradePass() { return gradePass; },
     player, vehicles, peds, traffic, Police, G, services, PROPERTIES, trains, flights, get mission() { return mission; }, startMission, MISSIONS, enterVehicle, exitVehicle, renderer, camera, scene, saveData, giveWeapon, equip, enterInterior, exitInterior, INT, get rideJob() { return rideJob; }, press: c => pressed.add(c), chunks, BLD, get robbery() { return robbery; }, set robbery(r) { robbery = r; }, Police, passMission, get missionObj() { return mission; }, AIR, edgePoint, Vehicle, surfaceAt, get bounds() { return [BX0, BZ0, BX1, BZ1]; }, collideCircle, sidewalkY, get traffic2() { return traffic; }, snap: () => { { const nr = window.__norender; window.__norender = false; if (!envRT) refreshEnv(hour); renderFrame(); window.__norender = nr; } return renderer.domElement.toDataURL('image/jpeg', 0.85); },
   };
 }

@@ -183,6 +183,8 @@ kbd.pad{background:#2b3a8a;color:#fff;box-shadow:0 2px 0 #121a44;border-radius:1
 #consoleLog{max-height:120px;overflow:auto;white-space:pre-wrap;font-size:13px;opacity:.85;}
 #bye h1{font-size:clamp(36px,7vw,64px);}
 #loadAssets{font:600 14px var(--f-body);opacity:.6;}
+#dirty{font:400 18px/1 var(--f-display);color:#ff9a3c;text-shadow:0 2px 0 #3a1a00,0 0 1px #000;font-variant-numeric:tabular-nums;}
+#dirty.flash{animation:flash .5s steps(2) 4;}
 /* Google Maps panel: a real Google map + Street View of the player's spot */
 #gmaps .panel{width:min(1100px,100%);max-height:92vh;}
 #gmBody{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:10px;}
@@ -204,6 +206,7 @@ kbd.pad{background:#2b3a8a;color:#fff;box-shadow:0 2px 0 #121a44;border-radius:1
     <div id="clock">17:30</div>
     <div id="cash">₹0</div>
     <div id="cashDelta"></div>
+    <div id="dirty" hidden></div>
     <div id="stars" aria-label="wanted level"><span>★</span><span>★</span><span>★</span><span>★</span><span>★</span></div>
     <div id="bars"><div class="bar" id="hbar" title="Health"><i style="width:100%"></i></div></div>
     <div class="bar" id="abar" title="Armor" hidden><i style="width:0%"></i></div>
@@ -655,7 +658,7 @@ function promptAction(action, text) { const k = ACTION_KEYS[action] || ['E', '�
 // Facade atlas: 4x4 tiles of 512px. Façade tiles = 3 bays x 2 floors; shop tiles = 3 bays x 1 floor.
 // RGB = colour (plaster is near-white so vertex colours tint it), A = glass / lit mask.
 const ATLAS = 2048, TILE = 512;
-const SHOP_NAMES = ['SRI MURUGAN STORES', 'KAVERI SILKS', 'MOBILE WORLD', 'BIRYANI CENTRE', 'APOLLO MEDICALS', 'TEA STALL', 'LAKSHMI TEXTILES', 'GOLD JEWELLERY', 'SWEETS & SNACKS', 'HARDWARE', 'BAKERY', 'TIFFIN CENTRE', 'XEROX', 'OPTICALS', 'FANCY STORE', 'AGENCIES', 'ELECTRICALS', 'PROVISION STORE', 'SAREES', 'FOOTWEAR', 'MESS', 'TRAVELS', 'PHARMACY', 'SPARE PARTS', 'COOL DRINKS', 'FILTER COFFEE'];
+const SHOP_NAMES = ['SHREE GANESH KIRANA', 'AMBIKA TEXTILES', 'MOBILE WORLD', 'JALARAM KHAMAN HOUSE', 'PATEL MEDICAL STORES', 'CHA NI KITLI', 'SHREEJI JEWELLERS', 'GUJARAT SWEETS & FARSAN', 'MAHADEV HARDWARE', 'BAKERY', 'THALI RESTAURANT', 'XEROX', 'OPTICALS', 'FANCY STORE', 'AGENCIES', 'ELECTRICALS', 'PROVISION STORE', 'SAREE CENTRE', 'FOOTWEAR', 'PAN PARLOUR', 'TRAVELS', 'PHARMACY', 'SPARE PARTS', 'COLD DRINKS', 'DABELI CENTRE', 'BHAGWATI STEEL'];
 const SIGN_BG = ['#c8251c', '#f2c41f', '#1f4fb3', '#178a45', '#ef7d16', '#f4f1e8', '#8a1e74', '#0f6e8c', '#d8326b', '#1a1a1a'];
 function makeFacadeAtlas() {
   const cv = document.createElement('canvas'); cv.width = cv.height = ATLAS; const x = cv.getContext('2d');
@@ -744,8 +747,8 @@ function makeFacadeAtlas() {
   // ---- 7: mall / showroom ----
   { const [ox, oy] = T(3, 1); x.fillStyle = '#cfd4d6'; x.fillRect(ox, oy, TILE, TILE);
     glass(ox + 20, oy + 30, TILE - 40, FL * 2 - 80, [30, 52, 70]); x.fillStyle = '#e8ecee'; for (let i = 0; i <= 4; i++) x.fillRect(ox + 20 + i * (TILE - 40) / 4 - 4, oy + 30, 8, FL * 2 - 80); x.fillRect(ox + 20, oy + FL - 4, TILE - 40, 10); }
-  // ---- 8-11: shopfronts (1 floor) ----
-  for (let k = 0; k < 4; k++) {
+  // ---- 8-10: shopfronts (1 floor) ----
+  for (let k = 0; k < 3; k++) {
     const [ox, oy] = T(k, 2);
     plaster(ox, oy, TILE, TILE, 210, 14);
     let sx = ox;
@@ -776,6 +779,13 @@ function makeFacadeAtlas() {
     }
     x.fillStyle = 'rgba(0,0,0,0.25)'; x.fillRect(ox, oy + 146, TILE, 10);
   }
+  // ---- 11: corrugated metal cladding (GIDC sheds): vertical ribs, a clerestory strip of glazing, a roller-shutter bay ----
+  { const [ox, oy] = T(3, 2); x.fillStyle = '#d6dadc'; x.fillRect(ox, oy, TILE, TILE);
+    for (let i = 0; i < 64; i++) { const sx = ox + i * TILE / 64; x.fillStyle = 'rgba(0,0,0,0.13)'; x.fillRect(sx, oy, 2.5, TILE); x.fillStyle = 'rgba(255,255,255,0.22)'; x.fillRect(sx + 3.5, oy, 1.5, TILE); }
+    x.fillStyle = 'rgba(70,55,40,0.16)'; for (let i = 0; i < 5; i++) { const sx = ox + R() * TILE; x.fillRect(sx, oy + R() * 120, 3 + R() * 6, 160 + R() * 200); }   // rust streaks
+    glass(ox, oy + 36, TILE, 34, [44, 60, 66]); x.fillStyle = '#9aa1a5'; for (let i = 0; i <= 8; i++) x.fillRect(ox + i * TILE / 8 - 2, oy + 36, 4, 34);
+    x.fillStyle = 'rgba(0,0,0,0.25)'; x.fillRect(ox, oy + TILE / 2 - 4, TILE, 6);
+    x.fillStyle = 'rgba(40,40,40,0.2)'; x.fillRect(ox, oy + TILE - 26, TILE, 26); }
   // ---- 12: Indo-Saracenic red brick with arches ----
   { const [ox, oy] = T(0, 3); x.fillStyle = '#b4523a'; x.fillRect(ox, oy, TILE, TILE);
     for (let i = 0; i < 900; i++) { x.fillStyle = `rgba(${R() < 0.5 ? '0,0,0' : '255,220,200'},0.06)`; x.fillRect(ox + R() * TILE, oy + R() * TILE, 14, 5); }
@@ -1245,7 +1255,7 @@ float hh(vec2 p){ vec3 p3 = fract(vec3(p.xyx) * 0.1031); p3 += dot(p3, p3.yzx + 
  if (sk > -0.5) {
    float shop = step(15.5, sk); float style = sk - 16.0 * shop; float seed = floor(vWd.z * 255.0 + 0.5);
    vec2 tuv; float col, row; bool ground = shop > 0.5 && vWd.y < 1.0;
-   if (ground) { tuv = vec2(vWd.x / 3.0, vWd.y); col = mod(floor(tuv.x) + seed, 4.0); row = 2.0; }
+   if (ground) { tuv = vec2(vWd.x / 3.0, vWd.y); col = mod(floor(tuv.x) + seed, 3.0); row = 2.0; }
    else { tuv = vec2(vWd.x / 3.0, (vWd.y - shop) / 2.0); col = mod(style, 4.0); row = floor(style / 4.0 + 0.01); }
    vec2 f = fract(tuv) * 0.992 + 0.004;
    vec2 auv = vec2((col + f.x) / 4.0, (row + 1.0 - f.y) / 4.0);
@@ -1644,6 +1654,7 @@ function subPoly(E, s0, s1) {
 }
 function pickStyle(b, kind, seed, h) {
   if (b.home) return 1;
+  if (b.ind) return 11;   // metal-clad GIDC shed
   if (b.s === 'saracenic') return 12; if (b.s === 'saracenic_w' || b.s === 'fort') return 13; if (b.s === 'stadium') return 15;
   if (b.s === 'modern') return seed < 0.5 ? 7 : 4; if (b.s === 'tower') return 6;
   if (b.tm) return 14;
@@ -1773,7 +1784,7 @@ async function initWorld(progress) {
     else addWallRing(pts, hh);
     const pi = bPolys.length; bPolys.push({ pts, minx, maxx, minz, maxz, h: hh, name: b.n || '', A, cx, cz, area });
     gridAdd(bPolyGrid, BC, minx, minz, maxx, maxz, pi);
-    const rec = { pts, h, hh, A, area, cx, cz, seed, k: b.k, s: b.s, ln: b.ln, tm: b.tm, n: b.n, bi, pi, isStadium };
+    const rec = { pts, h, hh, A, area, cx, cz, seed, k: b.k, s: b.s, ln: b.ln, tm: b.tm, n: b.n, bi, pi, isStadium, ind: !!b.in };
     BLD.push(rec); chunkAt(cx, cz).bld.push(BLD.length - 1);
     if (b.s && (b.s.startsWith('saracenic') || /railway station/.test(b.ln || '')) && area > 200) { const k = b.ln || b.s; if (!lmLargest[k] || lmLargest[k].area < area) lmLargest[k] = { area, cx, cz, h, pts, s: b.s, ln: b.ln }; }
     if (h > 55 && area > 350 && pointInPoly(cx, cz, pts)) tallTowers.push(pi);
@@ -1923,18 +1934,44 @@ function buildNear(c) {
 const TANK_GEO = (() => { const g = new THREE.CylinderGeometry(0.75, 0.75, 1.5, 12); g.translate(0, 0.75, 0); return g; })();
 M.bill.side = THREE.DoubleSide; M.curb.side = THREE.DoubleSide;
 
+// GIDC sheds: a pitched metal roof along the long side of the footprint's best-fit rectangle, plus a few roof vents
+const IND_PAL = [0xc9d3da, 0x9fb4c4, 0xe4e6e2, 0x8fa6a0, 0xb9b2a4, 0x7f9bb8, 0xd8d0c2];
+function shedRoof(B, col) {
+  const { pts, hh, area, cx, cz, bi } = B; if (area < 120 || pts.length > 12) return;
+  let best = null;
+  for (let i = 0; i < pts.length; i++) {   // minimum-area rectangle over the edge directions
+    const p = pts[i], q = pts[(i + 1) % pts.length], a = Math.atan2(q[1] - p[1], q[0] - p[0]), c = Math.cos(a), s = Math.sin(a);
+    let u0 = 1e9, u1 = -1e9, v0 = 1e9, v1 = -1e9; for (const [x, z] of pts) { const u = x * c + z * s, v = -x * s + z * c; u0 = Math.min(u0, u); u1 = Math.max(u1, u); v0 = Math.min(v0, v); v1 = Math.max(v1, v); }
+    const A = (u1 - u0) * (v1 - v0); if (!best || A < best.A) best = { A, a, u0, u1, v0, v1 };
+  }
+  if (!best || area / best.A < 0.78) return;   // irregular footprints keep their flat roof
+  let { a, u0, u1, v0, v1 } = best; if (v1 - v0 > u1 - u0) { a += Math.PI / 2; [u0, u1, v0, v1] = [v0, v1, -u1, -u0]; }
+  const c = Math.cos(a), s = Math.sin(a), W = (p, q, y) => [p * c - q * s, y, p * s + q * c];
+  const span = v1 - v0, rise = Math.min(4.5, span * 0.16), vm = (v0 + v1) / 2, y0 = hh + 0.05;
+  const metal = new THREE.Color(hash2(bi, 31) < 0.5 ? 0x9aa6ad : 0x6f8796).multiplyScalar(0.9 + hash2(bi, 33) * 0.2), gable = col.clone().multiplyScalar(0.92);
+  const A1 = W(u0, v0, y0), B1 = W(u1, v0, y0), C1 = W(u1, vm, y0 + rise), D1 = W(u0, vm, y0 + rise), A2 = W(u0, v1, y0), B2 = W(u1, v1, y0);
+  const n1 = [-s * rise, span / 2, c * rise], l1 = Math.hypot(...n1), n2 = [s * rise, span / 2, -c * rise];
+  const tri = (P, Q, R, n, cl) => { const ux = Q[0] - P[0], uy = Q[1] - P[1], uz = Q[2] - P[2], vx = R[0] - P[0], vy = R[1] - P[1], vz = R[2] - P[2]; const ny = uz * vx - ux * vz; if (ny < 0 && n[1] > 0) decor.tri(P, R, Q, n[0], n[1], n[2], cl); else decor.tri(P, Q, R, n[0], n[1], n[2], cl); };
+  tri(A1, B1, C1, n1.map(v => v / l1), metal); tri(A1, C1, D1, n1.map(v => v / l1), metal);
+  tri(A2, D1, C1, n2.map(v => v / l1), metal); tri(A2, C1, B2, n2.map(v => v / l1), metal);
+  decor.tri(A1, D1, A2, -c, 0, -s, gable); decor.tri(A1, A2, D1, c, 0, s, gable);   // gable ends (both faces)
+  decor.tri(B1, B2, C1, c, 0, s, gable); decor.tri(B1, C1, B2, -c, 0, -s, gable);
+  const vents = Math.min(6, Math.floor((u1 - u0) / 14));   // turbo ventilators along the ridge
+  for (let k = 1; k <= vents; k++) { const P = W(u0 + (u1 - u0) * k / (vents + 1), vm, y0 + rise); cylTo(decor, P[0], P[1], P[2], 0.35, 0.45, 0.9, 8, _col.setHex(0xc8cdd0)); }
+}
 function emitBuilding(buf, B, full, tanks) {
   const { pts, h, A, area, cx, cz, seed, bi } = B;
   const kind = B.k === 3 ? 5 : B.k;
   let hex;
   if (B.s) hex = STYLE_COL[B.s] || 0xd8d0c0;
   else if (B.tm) hex = 0xffffff;
+  else if (B.ind) hex = IND_PAL[Math.floor(seed * 997) % IND_PAL.length];
   else { const pal = kind === 1 ? WALL_PAL.comm : kind === 2 ? WALL_PAL.house : WALL_PAL.res; hex = pal[Math.floor(seed * 997) % pal.length]; }
   const col = new THREE.Color(hex).multiplyScalar(0.9 + hash2(bi, 3) * 0.12);
   const roof = new THREE.Color(0xc9c4ba).multiplyScalar(0.85 + hash2(bi, 5) * 0.2);
   const pcol = col.clone().multiplyScalar(0.92);
   const style = pickStyle(B, kind, seed, h);
-  const shop = !B.s && !B.tm && h >= 5.5 && h < 60 && (kind === 1 || (kind === 0 && seed > 0.4) || (kind === 2 && seed > 0.85)) ? 16 : 0;
+  const shop = !B.s && !B.tm && !B.ind && h >= 5.5 && h < 60 && (kind === 1 || (kind === 0 && seed > 0.4) || (kind === 2 && seed > 0.85)) ? 16 : 0;
   const hh = B.hh;
   let inner = null;
   if (B.isStadium) inner = pts.map(p => [cx + (p[0] - cx) * 0.6, cz + (p[1] - cz) * 0.6]);
@@ -1958,7 +1995,7 @@ function emitBuilding(buf, B, full, tanks) {
   doWalls(pts, false, 0, hh, style + shop, col);
   if (inner) doWalls(inner, true, 0, hh * 0.8, 15, col);
   const PW = [0, 0, 0, -1], RW = [0, 0, 0, -2];
-  if (full && !B.isStadium && area > 25 && style !== 4 && style !== 7) {
+  if (full && !B.isStadium && !B.ind && area > 25 && style !== 4 && style !== 7) {
     const ph = 0.95, ip = insetPoly(pts, 0.22, A);
     doWalls(pts, false, hh, hh + ph, 15, pcol);
     for (let i = 0; i < ip.length; i++) {
@@ -1989,6 +2026,7 @@ function emitBuilding(buf, B, full, tanks) {
     buf.tri(A3, B3, C3, 0, 1, 0, roof, RW, RW, RW);
   }
   if (!full) return;
+  if (B.ind) { shedRoof(B, col); return; }
   const r1 = hash2(bi, 7), r2 = hash2(bi, 11);
   if (!B.s && kind !== 5 && area > 50 && area < 1200 && h < 45 && r1 < 0.6 && pointInPoly(cx, cz, pts)) {
     const ox = (r2 - 0.5) * Math.sqrt(area) * 0.3, oz = (hash2(bi, 13) - 0.5) * Math.sqrt(area) * 0.3;
@@ -4216,8 +4254,8 @@ function setupServices() {
   // gun shops - pick electronics/hardware-ish spots spread out
   for (const p of spaced(byT('electronics').concat(byT('clothes')), 1700).slice(0, 9)) doorFor(p, 'gun');
   for (const p of spaced(byT('store'), 450)) doorFor(p, 'store');
-  for (const p of spaced(byT('jewel'), 700)) doorFor(p, 'jewel');
-  for (const p of spaced(byT('bank'), 650)) doorFor(p, 'bank');
+  for (const p of spaced(byT('jewel'), 300)) doorFor(p, 'jewel');
+  for (const p of spaced(byT('bank'), 350)) doorFor(p, 'bank');
   for (const p of spaced(byT('atm').concat(byT('bank')), 260)) { const s = streetSpot(p.x, p.z); if (s) addService('atm', s.x + s.tz * (s.hw + 1.6), s.z - s.tx * (s.hw + 1.6), { h: s.h }); }
   for (const p of spaced(byT('cars'), 2500).slice(0, 5)) doorFor(p, 'dealer');
   for (const p of spaced(byT('fuel').concat(G.pois.filter(q => q.t === 'fuel')), 500)) { const s = streetSpot(p.x, p.z); if (s && s.hw < 9) addService('fuel', s.x, s.z, { h: s.h, r: 6 }); }
@@ -4352,7 +4390,7 @@ function updateRobbery(dt) {
       robbery.amount = Math.min(robbery.max, robbery.amount + robbery.max * dt / 7);
       w.p.arms[0].rotation.x = -2.8; w.p.arms[1].rotation.x = -2.8;
       setObjective(`Robbing… ${money(robbery.amount)}`);
-      if (robbery.amount >= robbery.max) { robbery.done = true; addCash(Math.round(robbery.max)); toast('Cash grabbed! Get out before the cops arrive.'); Police.set(Math.max(Police.level, type === 'store' ? 2 : 3)); saveData.stats.robberies = (saveData.stats.robberies || 0) + 1; }
+      if (robbery.amount >= robbery.max) { robbery.done = true; Heists.addDirty(Math.round(robbery.max)); toast('Cash grabbed! Get out before the cops arrive, then launder it.'); Police.set(Math.max(Police.level, type === 'store' ? 2 : 3)); saveData.stats.robberies = (saveData.stats.robberies || 0) + 1; }
     }
   }
 }
@@ -5264,6 +5302,7 @@ function doRespawn() {
   const [fx, fz] = freeSpot(s.x, s.z); player.x = fx; player.z = fz; player.y = sidewalkY(fx, fz); player.vx = player.vz = 0; player.downT = 0; player.dead = false; player.health = 100;
   pMesh.root.visible = true; pMesh.inner.rotation.x = 0;
   let msg;
+  Heists.lose(respawnAt.kind === 'hospital' ? 'Wasted' : 'Busted');
   if (respawnAt.kind === 'hospital') { const fee = Math.min(player.cash + player.bank, 1000); spend(fee); msg = 'Hospital bill ' + money(fee); }
   else { const lost = player.cash; player.cash = 0; player.weapons = {}; equip('fists'); msg = 'Busted: lost ' + money(lost) + ' cash and your weapons'; }
   toast(msg + (p ? ' · ' + p.n : '')); respawnAt = null; camSmoothed = false; saveGame(true);
@@ -5452,6 +5491,57 @@ function drawMinimap() {
   const c = Math.cos(rot), s = Math.sin(rot); const nx = R + (s) * (R - 16), ny = R + (-c) * (R - 16);
   ctx.font = '700 26px "Barlow Condensed", sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.lineWidth = 5; ctx.strokeStyle = '#000'; ctx.strokeText('N', nx, ny); ctx.fillStyle = '#f6c21c'; ctx.fillText('N', nx, ny);
 }
+// ---------- map labels: street names along the roads + landmarks, decluttered on a screen grid ----------
+let streetCands = null;
+function buildStreetCands() {
+  // one candidate per long straight-ish piece of each named road; main roads first so they win the space
+  streetCands = [];
+  for (const E of G.edges) {
+    if (!E.name || E.c > 4 || E.len < 45) continue;
+    const k = Math.floor(E.xs.length / 2), k2 = Math.min(E.xs.length - 1, k + 1), k1 = k2 - 1;
+    const mx = (E.xs[k1] + E.xs[k2]) / 2, mz = (E.zs[k1] + E.zs[k2]) / 2;
+    let ang = Math.atan2(E.zs[k2] - E.zs[k1], E.xs[k2] - E.xs[k1]); if (ang > Math.PI / 2) ang -= Math.PI; if (ang < -Math.PI / 2) ang += Math.PI;
+    streetCands.push({ n: E.name, x: mx, z: mz, ang, c: E.c, len: E.len });
+  }
+  streetCands.sort((a, b) => a.c - b.c || b.len - a.len);
+}
+const LANDMARK_TYPES = { station: '#c9b37a', airport: '#ffffff', port: '#37d6ff', mall: '#ff8a1a', hospital: '#e04040', stadium: '#7fd39a', sight: '#f6c21c', cinema: '#d24cff', college: '#9fc4dc', worship: '#ffb87a', police: '#5aa0ff' };
+function drawMapLabels(ctx, S, W, H) {
+  if (!streetCands) buildStreetCands();
+  const used = new Set(), cell = 46, seen = new Map();
+  const free = (a, b, w, h) => { const x0 = Math.floor((a - w / 2) / cell), x1 = Math.floor((a + w / 2) / cell), y0 = Math.floor((b - h / 2) / cell), y1 = Math.floor((b + h / 2) / cell);
+    for (let i = x0; i <= x1; i++) for (let j = y0; j <= y1; j++) if (used.has(i + ',' + j)) return false;
+    for (let i = x0; i <= x1; i++) for (let j = y0; j <= y1; j++) used.add(i + ',' + j); return true; };
+  ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  // landmarks (stations, airport, malls, hospitals, forts, temples...) appear as you zoom in
+  const minC = bm.scale > 0.9 ? 99 : bm.scale > 0.45 ? 2 : 1;
+  for (const p of G.pois) {
+    const col = LANDMARK_TYPES[p.t]; if (!col || p.n.length > 32) continue;
+    const big = p.t === 'station' || p.t === 'airport' || p.t === 'port';
+    if (!big && (bm.scale < 0.45 || (p.t === 'worship' || p.t === 'college' || p.t === 'police') && bm.scale < 0.9)) continue;
+    const [a, b] = S(p.x, p.z); if (a < 0 || b < 0 || a > W || b > H) continue;
+    ctx.font = `${big ? 700 : 600} ${big ? 14 : 12}px "Barlow Condensed", sans-serif`; const w = ctx.measureText(p.n).width + 14;
+    if (!free(a, b - 12, w, 18)) continue;
+    ctx.beginPath(); ctx.arc(a, b, 3.5, 0, TAU); ctx.fillStyle = col; ctx.fill();
+    ctx.lineWidth = 3.5; ctx.strokeStyle = 'rgba(0,0,0,.85)'; ctx.strokeText(p.n, a, b - 12); ctx.fillStyle = col; ctx.fillText(p.n, a, b - 12);
+  }
+  // street names rotated along the road
+  if (bm.scale < 0.22) return;
+  const maxC = bm.scale > 0.7 ? 4 : bm.scale > 0.4 ? 3 : bm.scale > 0.3 ? 2 : 1;
+  const gap = 260 / bm.scale;   // repeat a name at most every ~260 px on screen
+  let n = 0;
+  for (const s of streetCands) {
+    if (s.c > maxC) continue;
+    const [a, b] = S(s.x, s.z); if (a < 20 || b < 20 || a > W - 20 || b > H - 20) continue;
+    const prev = seen.get(s.n); if (prev && prev.some(q => dist2(q[0], q[1], s.x, s.z) < gap * gap)) continue;
+    ctx.font = `600 ${s.c <= 1 ? 13 : 11}px "Barlow Condensed", sans-serif`; const w = ctx.measureText(s.n).width + 8;
+    if (s.len * bm.scale < w * 0.6) continue;   // road too short on screen for its name
+    const cw = Math.abs(Math.cos(s.ang)) * w + 14, ch = Math.abs(Math.sin(s.ang)) * w + 14; if (!free(a, b, cw, ch)) continue;
+    ctx.save(); ctx.translate(a, b); ctx.rotate(s.ang);
+    ctx.lineWidth = 3; ctx.strokeStyle = 'rgba(20,22,24,.9)'; ctx.strokeText(s.n, 0, 0); ctx.fillStyle = s.c <= 1 ? '#fff3c4' : '#e6e1d4'; ctx.fillText(s.n, 0, 0); ctx.restore();
+    (prev || seen.set(s.n, []).get(s.n)).push([s.x, s.z]); if (++n > 220) break;
+  }
+}
 // ---------- big map ----------
 const bm = { open: false, scale: 0, ox: 0, oy: 0, drag: null };
 const bmc = $('bigmapCanvas'), bctx = bmc.getContext('2d');
@@ -5477,13 +5567,14 @@ function drawBigMap() {
     const [a, b] = S(p.x, p.z); ctx.font = `${p.s ? 700 : 600} ${p.s ? 16 : 12}px "Barlow Condensed", sans-serif`;
     ctx.lineWidth = 4; ctx.strokeStyle = 'rgba(0,0,0,.8)'; const t = p.s ? p.n.toUpperCase() : p.n; ctx.strokeText(t, a, b); ctx.fillStyle = p.s ? '#f3e8c8' : '#bdb6a2'; ctx.fillText(t, a, b);
   }
+  drawMapLabels(ctx, S, W, H);
   for (const bl of blipList(true)) { const [a, b] = S(bl.x, bl.z); if (a < -20 || b < -20 || a > W + 20 || b > H + 20) continue; drawBlip(ctx, a, b, bl.col, (bl.r || 6) * 1.4, bl.label || ''); }
   const [px, pz] = S(player.x, player.z); const ph = player.veh ? player.veh.h : player.h;
   ctx.save(); ctx.translate(px, pz); ctx.rotate(Math.atan2(Math.cos(ph), Math.sin(ph))); ctx.beginPath(); ctx.moveTo(12, 0); ctx.lineTo(-8, 8); ctx.lineTo(-4, 0); ctx.lineTo(-8, -8); ctx.closePath(); ctx.fillStyle = '#fbf3dc'; ctx.fill(); ctx.strokeStyle = '#000'; ctx.lineWidth = 2; ctx.stroke(); ctx.restore();
   ctx.font = '400 22px Bungee, Impact, sans-serif'; ctx.textAlign = 'right'; ctx.fillStyle = '#f6c21c'; ctx.fillText('VAPI · DAMAN', W - 24, H - 40);
   // legend
-  ctx.textAlign = 'left'; ctx.font = '600 14px "Barlow Condensed", sans-serif'; let ly = H - 210;
-  for (const k of ['gun', 'store', 'jewel', 'bank', 'dealer', 'fuel', 'spray', 'hangar', 'marina', 'station', 'forsale']) { const st = SERVICE_STYLE[k]; drawBlip(ctx, 34, ly, st.col, 8, st.icon); ctx.fillStyle = '#ddd'; ctx.fillText(st.label, 50, ly + 1); ly += 19; }
+  ctx.textAlign = 'left'; ctx.font = '600 14px "Barlow Condensed", sans-serif'; let ly = H - 250;
+  for (const k of ['gun', 'store', 'jewel', 'bank', 'mansion', 'hawala', 'dealer', 'fuel', 'spray', 'hangar', 'marina', 'station', 'forsale']) { const st = SERVICE_STYLE[k]; drawBlip(ctx, 34, ly, st.col, 8, st.icon); ctx.textAlign = 'left'; ctx.font = '600 14px "Barlow Condensed", sans-serif'; ctx.fillStyle = '#ddd'; ctx.fillText(st.label, 50, ly + 1); ly += 19; }
 }
 bmc.addEventListener('wheel', e => { e.preventDefault(); const k = Math.exp(-e.deltaY * 0.0015); const ns = clamp(bm.scale * k, 0.05, 3); const mx = e.clientX, my = e.clientY; bm.ox = mx - (mx - bm.ox) * ns / bm.scale; bm.oy = my - (my - bm.oy) * ns / bm.scale; bm.scale = ns; drawBigMap(); }, { passive: false });
 bmc.addEventListener('mousedown', e => { bm.drag = { x: e.clientX, y: e.clientY, ox: bm.ox, oy: bm.oy, moved: false }; });
@@ -5600,7 +5691,7 @@ function setPaused(v) {
   if (v) {
     if (document.pointerLockElement) document.exitPointerLock();
     const done = saveData.done.length;
-    $('progress').innerHTML = `Missions <b>${done}/${MISSIONS.length}</b><br>Hidden packages <b>${saveData.packages.length}/${packages.length}</b><br>Properties <b>${saveData.props.length}/${PROPERTIES.length}</b><br>Rides <b>${saveData.rides || 0}</b> · Robberies <b>${saveData.stats.robberies || 0}</b><br>Cash <b class="g">${money(player.cash)}</b> · Bank <b class="g">${money(player.bank)}</b>`;
+    $('progress').innerHTML = `Missions <b>${done}/${MISSIONS.length}</b><br>Hidden packages <b>${saveData.packages.length}/${packages.length}</b><br>Properties <b>${saveData.props.length}/${PROPERTIES.length}</b><br>Rides <b>${saveData.rides || 0}</b> · Robberies <b>${saveData.stats.robberies || 0}</b> · Heists <b>${saveData.stats.heists || 0}</b><br>Dirty cash <b>${money(saveData.dirty || 0)}</b> · Laundered <b>${money(saveData.stats.laundered || 0)}</b><br>Cash <b class="g">${money(player.cash)}</b> · Bank <b class="g">${money(player.bank)}</b>`;
     $('resetConfirm').hidden = true;
   } else canvas.focus();
 }
@@ -5781,7 +5872,7 @@ async function boot() {
   window.__mh = {
     setHour: h => { hour = h; }, tp: (x, z, yaw, pitch = 0.32, mode = 0) => { if (player.veh) exitVehicle(); const r = roadQuery(x, z, 60, 0); if (r.seg) { x = r.px; z = r.pz; } player.x = x; player.z = z; player.y = 0; camYaw = yaw; camPitch = pitch; camMode = mode; camSmoothed = false; player.h = yaw; updateChunks(x, z, 1e9, true); },
     drive: (type, x, z, h) => { const r = roadQuery(x, z, 60, 0); if (r.seg) { x = r.px; z = r.pz; h = headingTo(r.seg.bx - r.seg.ax, r.seg.bz - r.seg.az); } const v = new Vehicle(type, undefined, x, z, h); traffic.push(v); enterVehicle(v); camYaw = h; camSmoothed = false; updateChunks(x, z, 1e9, true); return v; },
-    failMission, serviceInteract, walkPolys, walkSurfaceAt, centroidOf: centroid, Airport, Metro, Living, Dialogue, get GMaps() { return GMaps; }, Cheats, UI, MissionFW, Settings, nextStep, interiorCollide, get waypoint() { return waypoint; }, sanitizeSave, WorldFix, railLines, Weather, Assets, EventBus, Systems, Triggers, Layers, get gradePass() { return gradePass; },
+    failMission, serviceInteract, walkPolys, walkSurfaceAt, centroidOf: centroid, Airport, Metro, Living, Dialogue, get GMaps() { return GMaps; }, get Heists() { return Heists; }, Cheats, UI, MissionFW, Settings, nextStep, interiorCollide, get waypoint() { return waypoint; }, sanitizeSave, WorldFix, railLines, Weather, Assets, EventBus, Systems, Triggers, Layers, get gradePass() { return gradePass; },
     player, vehicles, peds, traffic, Police, G, services, PROPERTIES, trains, flights, get mission() { return mission; }, startMission, MISSIONS, enterVehicle, exitVehicle, renderer, camera, scene, saveData, giveWeapon, equip, enterInterior, exitInterior, INT, get rideJob() { return rideJob; }, press: c => pressed.add(c), chunks, BLD, get robbery() { return robbery; }, set robbery(r) { robbery = r; }, Police, passMission, get missionObj() { return mission; }, AIR, edgePoint, Vehicle, surfaceAt, get bounds() { return [BX0, BZ0, BX1, BZ1]; }, collideCircle, sidewalkY, get traffic2() { return traffic; }, snap: () => { { const nr = window.__norender; window.__norender = false; if (!envRT) refreshEnv(hour); renderFrame(); window.__norender = nr; } return renderer.domElement.toDataURL('image/jpeg', 0.85); },
   };
 }
@@ -6094,7 +6185,7 @@ const STEP = {
     update(st, M, dt) {
       if (!player.interior || player.interior.type !== st.inside) return false;
       const I = INT[st.inside], sp = I.spots[st.spot]; const d = Math.hypot(player.x - (I.x + sp[0]), player.z - (I.z + sp[1]));
-      if (!st._alarm) { st._alarm = true; Police.set(st.wanted || 3); toast('Alarm! Hold the vault while the drill runs.'); spawnRaiders(st); }
+      if (!st._alarm) { st._alarm = true; Police.set(st.wanted || 3); if (st.inside === 'mansion') Heists.alarm(st.wanted || 3); toast(st.inside === 'mansion' ? 'The guards heard you! Hold the safe while the drill runs.' : 'Alarm! Hold the vault while the drill runs.'); spawnRaiders(st); }
       if (d < 3) st._left -= dt; return st._left <= 0;
     },
     target(st) { return player.interior ? null : st._t || (st._t = svcPos(nearestSvc(st.inside))); },
@@ -6334,6 +6425,21 @@ function defineMissions() {
       { t: 'goto', need: 'target', stop: true, to: () => { const [x, z] = placeXZ('GIDC'); const s = roadSpot(x, z, 1, true); return [s.x, s.z]; }, r: 10, text: 'Deliver the van to the <b>GIDC godown</b>', label: 'Deliver to the GIDC godown', keepTimer: true },
       { t: 'lose' },
     ]
+  });
+  const mansion = nearestSvc('mansion', hd.x, hd.z);
+  if (mansion) MISSIONS.push({
+    id: 'm17', title: "The Seth's Safe", who: 'Maya', at: (() => { const s = roadSpot(mansion.x + 30, mansion.z + 30, 1); return [s.x, s.z]; })(), unlock: d => d.includes('m9'), reward: 200000,
+    brief: `${mansion.name}: a chemical-money fortune behind one safe door, six armed guards and a panic button wired to the Gujarat Police. Crack the safe, get out, lose five stars. Then wash the money.`,
+    steps: [
+      { t: 'phone', from: 'Maya', msg: "The Seth keeps his real money at home, not in the bank. His guards are ex-army. Bring a rifle and armour, and don't leave that safe until it opens." },
+      { t: 'give', weapon: 'rifle', ammo: 300 },
+      { t: 'enter', need: 'car', text: 'Get a <b>car</b> for the getaway', label: 'Get a getaway car' },
+      { t: 'goto', need: 'car', stop: true, to: () => [mansion.x, mansion.z], r: 14, text: `Drive to the <b>${mansion.name}</b>`, label: 'Drive to the bungalow' },
+      { t: 'hold', inside: 'mansion', spot: 'safe', secs: 60, wanted: 4, text: 'Break into the bungalow and crack the <b>safe</b>' },
+      { t: 'goto', to: () => [mansion.x, mansion.z], r: 1e9, text: 'Get out of the bungalow', check: () => !player.interior },
+      { t: 'wanted', level: 5 },
+      { t: 'lose' },
+    ],
   });
   defineTransitMissions(near, hd);
   for (const m of MISSIONS) { m.marker = makeMarker(); m.label = labelSprite(m.title.toUpperCase(), m.who); m.label.visible = false; const f = freeSpot(m.at[0], m.at[1]); m.pos = f; }
@@ -6630,12 +6736,135 @@ function sanitizeSave(d) {
   for (const k of ['done', 'packages', 'props', 'aircraft', 'boats']) d[k] = Array.isArray(d[k]) ? [...new Set(d[k])] : [];
   for (const k of ['garages', 'stash', 'locker', 'weapons', 'stats', 'rel']) if (!d[k] || typeof d[k] !== 'object' || Array.isArray(d[k])) d[k] = {};
   for (const k in d.stash) d.stash[k] = Math.round(num(d.stash[k], 0, 1e11, 0));
+  d.dirty = Math.round(num(d.dirty, 0, 1e11, 0)); if (!d.heists || typeof d.heists !== 'object' || Array.isArray(d.heists)) d.heists = {};
   for (const k in d.rel) d.rel[k] = num(d.rel[k], -100, 100, 0);
   for (const k in d.weapons) { const w = d.weapons[k]; if (!WEAPONS[k] || !w) { delete d.weapons[k]; continue; } w.clip = Math.round(num(w.clip, 0, 1e5, 0)); w.ammo = Math.round(num(w.ammo, 0, 1e6, 0)); }
   if (!d.props.length) d.props = ['zanda']; if (!d.home || !d.props.includes(d.home)) d.home = d.props[0];
   if (d.weather && !Weather.kinds.includes(d.weather)) d.weather = 'clear';
   return d;
 }
+
+// ===================== HEISTS & DIRTY MONEY: bank vaults, millionaire bungalows, hawala laundering =====================
+// Robbery loot is dirty cash: it can't be spent, it's lost if you're wasted or busted, and it only becomes real money
+// after a hawala front washes it (for a cut). Heists are deliberately hard: alarms, armed guards, SWAT, 4-5 stars.
+const GUARD_LOOK = { skin: 0x6b4429, shirt: 0x3d3a2c, lower: 0x2a2a26, kind: 'tee', female: false, hair: 0x141210, shoe: 0x111111, h: 1.02, long: false, accent: 0xd4a72c, build: 1.15 };
+const Heists = {
+  active: null,           // { kind: 'vault' | 'mansion', svc, left, total, loot }
+  mansions: [], hawalas: [], guards: [],
+  COOLDOWN: 20 * 60 * 1000,   // a hit place stays locked down for 20 minutes of real time
+  get dirty() { return saveData.dirty || 0; },
+  addDirty(n) { saveData.dirty = Math.round((saveData.dirty || 0) + n); this.hud(true); toast(`+${money(n)} dirty cash · launder it at a hawala front (₹ on the map)`); Sound.cash(); },
+  hud(flash) { const el = $('dirty'); if (!el) return; const d = this.dirty; el.hidden = d <= 0; el.textContent = money(d) + ' dirty'; if (flash) { el.classList.remove('flash'); void el.offsetWidth; el.classList.add('flash'); } },
+  lose(why) { if (this.dirty > 0) { toast(`${why}: lost ${money(this.dirty)} dirty cash`); saveData.dirty = 0; this.hud(); } },
+  hkey(svc) { return svc.hid || ('bank@' + Math.round(svc.x) + ',' + Math.round(svc.z)); },
+  cooled(svc) { const t = (saveData.heists || {})[this.hkey(svc)]; return !t || Date.now() - t > this.COOLDOWN; },
+  init() {
+    saveData.heists = saveData.heists || {};
+    SERVICE_STYLE.mansion = { label: 'Millionaire Bungalow', icon: '♛', col: '#ffd24c' };
+    SERVICE_STYLE.hawala = { label: 'Hawala (launder cash)', icon: '%', col: '#ff9a3c' };
+    // ---- millionaire bungalows: big free-standing houses with gardens, away from the apartment blocks ----
+    const cand = [];
+    for (const B of BLD) {
+      if (B.ind || B.s || B.tm || B.area < 320 || B.area > 1500 || B.h > 12.5) continue;
+      let near = 0; for (const j of bldNear(B.cx, B.cz, 40)) if (BLD[j] !== B) near++;
+      if (near <= 3) cand.push({ B, score: B.area / (near + 1) * (0.8 + hash2(B.bi, 61) * 0.4) });
+    }
+    cand.sort((a, b) => b.score - a.score);
+    const OWNERS = ['Seth Mafatlal', 'Shah Chemicals', 'Desai Paper Mills', 'Seth Kantilal', 'Mehta Pharma', 'Bhanushali Dyes', 'Parekh Plastics', 'Seth Hiralal', 'Daman Liquor Baron', 'Vora Textiles'];
+    for (const { B } of cand) {
+      if (this.mansions.length >= 9) break;
+      if (this.mansions.some(m => dist2(m.x, m.z, B.cx, B.cz) < 900 * 900)) continue;
+      const d = nearestWallDoor(B.cx, B.cz, Math.sqrt(B.area) + 20); if (!d || d.bi !== B.pi) continue;
+      const name = OWNERS[this.mansions.length % OWNERS.length] + ' bungalow';
+      const s = addService('mansion', d.x, d.z, { h: d.h, name, r: 2, hid: 'mansion' + this.mansions.length, loot: Math.round(250000 + B.area * 250 + hash2(B.bi, 63) * 150000) });
+      this.mansions.push(s);
+    }
+    SERVICE_HANDLERS.mansion = s => { if (!this.cooled(s)) { toast('Police tape everywhere. This bungalow was hit recently.'); return; } enterInterior('mansion', s); };
+    // ---- hawala fronts: back offices of electronics / textile shops in the bazaars of Vapi, GIDC and Nani Daman ----
+    const cands = G.shops.filter(p => p.t === 'electronics' || p.t === 'clothes');
+    for (const area of ['Zanda Chowk', 'GIDC Char Rasta', 'Nani Daman', 'Chala']) {
+      const [ax, az] = placeXZ(area); let best = null, bd = 1e18;
+      for (const p of cands) { const dd = dist2(p.x, p.z, ax, az); if (dd < bd) { bd = dd; best = p; } }
+      if (!best || bd > 1500 * 1500) continue; const d = nearestWallDoor(best.x, best.z); if (!d) continue;
+      this.hawalas.push(addService('hawala', d.x, d.z, { h: d.h, name: 'Hawala · ' + (best.n || area), r: 1.8, area }));
+    }
+    SERVICE_HANDLERS.hawala = s => this.hawalaMenu(s);
+    this.buildMansion();
+    // bank vault heist, outside missions: stand at the vault and drill it while the SWAT team comes in
+    const BI = INT.bank;
+    Triggers.add({ id: 'heist:vault', interior: 'bank', x: BI.x + BI.spots.vault[0], z: BI.z + BI.spots.vault[1], r: 2.4,
+      prompt: () => mission || this.active ? null : this.cooled(player.interior.svc) ? 'Drill the vault (heist · 5 stars)' : 'The vault is empty after the last hit',
+      onUse: () => { if (!mission && !this.active && this.cooled(player.interior.svc)) this.start('vault', player.interior.svc, 45, 150000 + Math.random() * 100000); } });
+    this.hud();
+  },
+  buildMansion() {
+    const marble = new THREE.MeshStandardMaterial({ color: 0xece7de, roughness: 0.18, metalness: 0.05 });
+    const I = addInterior('mansion', 30, 22, 5.2, (g, W, D, H, I) => {
+      ibox(g, marble, W - 0.2, 0.02, D - 0.2, 0, 0.01, 0);
+      ibox(g, IMAT.red, 10, 0.03, 6, -6, 0.03, 2);                                                   // carpet
+      ibox(g, IMAT.fabric, 5, 0.6, 1.4, -6, 0.3, -1); ibox(g, IMAT.fabric, 1.4, 0.6, 4, -10, 0.3, 2);   // sofas
+      ibox(g, IMAT.gold, 1.2, 2.6, 0.2, -6, 2.3, -D / 2 + 0.2);                                       // gilded mirror
+      for (let k = 0; k < 4; k++) ibox(g, new THREE.MeshStandardMaterial({ color: [0x8a1e74, 0x1f4fb3, 0xc8251c, 0x178a45][k] }), 2.2, 1.5, 0.08, 4 + k * 3, 2.6, -D / 2 + 0.15);   // paintings
+      const ch = new THREE.Mesh(new THREE.SphereGeometry(1.1, 12, 8), new THREE.MeshStandardMaterial({ color: 0xfff4d0, emissive: 0xffd890, emissiveIntensity: 1.2 })); ch.position.set(-4, H - 1.2, 0); g.add(ch);   // chandelier
+      ibox(g, IMAT.wood, 6, 0.9, 2, 8, 0.45, 4);                                                     // dining
+      I.walls.push([4, -D / 2, 4, -3], [4, 3, 4, D / 2 - 4]);                                         // partition: hall | study
+      ibox(g, IMAT.wall, 0.25, H, D / 2 - 3, 4, H / 2, (-D / 2 - 3) / 2); ibox(g, IMAT.wall, 0.25, H, D / 2 - 7, 4, H / 2, (3 + D / 2 - 4) / 2);
+      ibox(g, IMAT.metal, 1.6, 2.0, 1.2, 12.5, 1.0, -8.6); ibox(g, IMAT.dark, 0.5, 0.5, 0.05, 12.5, 1.3, -7.98);   // the safe, in the study
+      I.spots = { safe: [12.5, -7.2], hall: [-6, 3] };
+      I.guardSpots = [[-10, -6], [-2, 6], [8, -2], [10, 6], [0, -7], [-12, 7]];
+    });
+    I.onEnter = svc => this.populate(I, svc); I.onExit = () => this.depopulate();
+    Triggers.add({ id: 'heist:safe', interior: 'mansion', x: I.x + I.spots.safe[0], z: I.z + I.spots.safe[1], r: 2.2,
+      prompt: () => this.active ? null : 'Crack the safe (heist · armed guards)',
+      onUse: () => { if (!this.active && !(mission && mission.def.id === 'm17')) this.start('mansion', player.interior.svc, 60, player.interior.svc.loot); } });
+    this.I = I;
+  },
+  populate(I, svc) {
+    this.depopulate();
+    const n = 4 + Math.floor(Math.random() * 3);
+    for (let k = 0; k < n; k++) { const [x, z] = I.guardSpots[k % I.guardSpots.length]; const w = new Walker(GUARD_LOOK, I.x + x, I.z + z); w.state = 'stand'; w.special = true; w.health = 140; w.h = Math.random() * TAU; w.arm(k % 2 ? 'smg' : 'pistol'); this.guards.push(w); }
+    toast('Private security inside. They will open fire the moment you go for the safe.');
+  },
+  depopulate() { for (const w of this.guards) w.remove(); this.guards = []; },
+  alarm(level) { for (const w of this.guards) if (!w.dead) { w.state = 'cop'; w.hostile = true; } Police.set(Math.max(Police.level, level)); },
+  start(kind, svc, secs, loot) {
+    this.active = { kind, svc, left: secs, total: secs, loot: Math.round(loot), spawned: false };
+    if (kind === 'vault') { this.alarm(4); spawnRaiders({ inside: 'bank' }); toast('Alarm! Keep the drill running: stay at the vault.'); }
+    else { this.alarm(3); toast('The guards heard the drill! Stay at the safe until it opens.'); }
+    EventBus.emit('heist:start', { kind, name: svc && svc.name });
+  },
+  update(dt) {
+    const H = this.active; if (!H) return;
+    const type = H.kind === 'vault' ? 'bank' : 'mansion';
+    if (player.dead) { this.active = null; EventBus.emit('heist:failed', { kind: H.kind }); return; }
+    if (!player.interior || player.interior.type !== type) {
+      if (H.done) { this.active = null; Police.set(Math.max(Police.level, H.kind === 'vault' ? 5 : 4)); toast('Get away and lose the heat, then launder the cash.'); }
+      else { this.active = null; toast('You abandoned the heist.'); EventBus.emit('heist:failed', { kind: H.kind }); }
+      return;
+    }
+    if (H.done) { setObjective('Get out with the loot'); return; }
+    const I = INT[type], sp = I.spots[H.kind === 'vault' ? 'vault' : 'safe'];
+    const at = Math.hypot(player.x - (I.x + sp[0]), player.z - (I.z + sp[1])) < 2.6;
+    if (at) H.left -= dt;
+    setObjective(at ? `${H.kind === 'vault' ? 'Drilling the vault' : 'Cracking the safe'} · <b>${Math.ceil(H.left)}s</b> · hold your ground` : `Get back to the <b>${H.kind === 'vault' ? 'vault' : 'safe'}</b>, the drill stops without you`);
+    if (H.kind === 'mansion' && !H.spawned && H.left < H.total * 0.5) { H.spawned = true; Police.set(4); spawnRaiders({ inside: 'mansion' }); toast('Gujarat Police SWAT is coming through the front door!'); }
+    if (H.left <= 0) {
+      H.done = true; this.addDirty(H.loot); saveData.heists[this.hkey(H.svc)] = Date.now();
+      saveData.stats.heists = (saveData.stats.heists || 0) + 1; saveGame(true);
+      banner(H.kind === 'vault' ? 'VAULT CRACKED' : 'SAFE CRACKED', money(H.loot) + ' in dirty cash · now get out', false, 3.5);
+      EventBus.emit('heist:done', { kind: H.kind, loot: H.loot });
+    }
+  },
+  hawalaMenu(s) {
+    const d = this.dirty, rel = Math.max(0, Math.min(10, (saveData.stats.laundered || 0) / 200000)), cut = Math.round(30 - rel);   // regulars get a better rate
+    Menu.show(s.name, d > 0 ? `${money(d)} dirty · the operator keeps ${cut}%` : 'No dirty cash to wash. Come back after a job.', [
+      { label: `Launder everything (${money(d * (1 - cut / 100))} clean to your bank)`, disabled: d <= 0, action: () => { const clean = Math.round(d * (1 - cut / 100)); payBank(clean); saveData.stats.laundered = (saveData.stats.laundered || 0) + d; saveData.dirty = 0; this.hud(); saveGame(true); toast(`Washed ${money(d)} · ${money(clean)} reached your bank`); EventBus.emit('launder', { dirty: d, clean }); return 'close'; } },
+      { label: 'Leave', action: () => 'close' }]);
+  },
+};
+// nearby buildings by centroid (bungalow detection)
+function bldNear(x, z, r) { const out = []; for (const i of chunkAt(x, z).bld) if (dist2(BLD[i].cx, BLD[i].cz, x, z) < r * r) out.push(i); return out; }
+Systems.register('heists', { init() { Heists.init(); }, update(dt) { Heists.update(dt); } }, 35);
 
 </script>
 
